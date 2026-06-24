@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Santa Barbara Parcel Explorer</title>
+  <meta name="description" content="Interactive GIS viewer for Santa Barbara City parcel data — search by address or APN, explore zoning, fire assessment areas, city limits, and more." />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <svg class="logo-mark" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="SB Parcel Explorer logo">
+        <rect x="2" y="2" width="28" height="28" rx="6" fill="var(--color-primary)" opacity="0.12"/>
+        <path d="M6 24 L12 10 L16 18 L20 12 L26 24 Z" stroke="var(--color-primary)" stroke-width="2" stroke-linejoin="round" fill="none"/>
+        <circle cx="22" cy="10" r="3" fill="var(--color-accent)" opacity="0.8"/>
+        <rect x="6" y="22" width="20" height="2" rx="1" fill="var(--color-primary)" opacity="0.5"/>
+      </svg>
+      <div class="header-title-group">
+        <span class="header-title">SB Parcel Explorer</span>
+        <span class="header-sub">City of Santa Barbara · Live GIS Data</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="search-bar" id="searchBar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Search by address or APN (e.g. 123 State St or 017-100-001)…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="search-clear" id="searchClear" aria-label="Clear search" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <button class="btn-search" id="searchBtn">Search</button>
+      </div>
+      <div class="search-results-dropdown" id="searchDropdown" hidden></div>
+    </div>
+
+    <div class="header-right">
+      <button class="btn-icon" data-theme-toggle aria-label="Toggle dark mode">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <a href="https://gisportal.santabarbaraca.gov/server1/rest/services/CitySantaBarbara/MapServer" target="_blank" class="btn-outline btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        ArcGIS REST
+      </a>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <div class="app-body">
+    <!-- Left sidebar: layers -->
+    <aside class="sidebar-left" id="sidebarLeft">
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Layers</span>
+          <button class="btn-text btn-sm" id="resetLayers">Reset</button>
+        </div>
+
+        <div class="layer-group">
+          <div class="layer-group-label">Core Parcel Data</div>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="parcels" checked />
+            <span class="toggle-track"></span>
+            <span class="layer-name">Assessors Parcels</span>
+            <span class="layer-badge city">City</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="zoning" />
+            <span class="toggle-track"></span>
+            <span class="layer-name">Zoning</span>
+            <span class="layer-badge city">City</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="city-limits" checked />
+            <span class="toggle-track"></span>
+            <span class="layer-name">City Limits</span>
+            <span class="layer-badge city">City</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="assessment-chips" />
+            <span class="toggle-track"></span>
+            <span class="layer-name">Assessment Chip Areas</span>
+            <span class="layer-badge fire">Fire</span>
+          </label>
+        </div>
+
+        <div class="layer-group">
+          <div class="layer-group-label">Planning &amp; Hazards</div>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="neighborhoods" />
+            <span class="toggle-track"></span>
+            <span class="layer-name">Neighborhoods</span>
+            <span class="layer-badge city">City</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="high-fire" />
+            <span class="toggle-track"></span>
+            <span class="layer-name">High Fire Hazard Areas</span>
+            <span class="layer-badge fire">Fire</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="fema-flood" />
+            <span class="toggle-track"></span>
+            <span class="layer-name">FEMA Flood 2023</span>
+            <span class="layer-badge env">Hazard</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="coastal-zone" />
+            <span class="toggle-track"></span>
+            <span class="layer-name">Coastal Zone Boundary</span>
+            <span class="layer-badge plan">Plan</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="historic" />
+            <span class="toggle-track"></span>
+            <span class="layer-name">Historic Sites</span>
+            <span class="layer-badge plan">Plan</span>
+          </label>
+        </div>
+
+        <div class="layer-group">
+          <div class="layer-group-label">County Data</div>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="county-parcels" />
+            <span class="toggle-track"></span>
+            <span class="layer-name">County Assessor Parcels</span>
+            <span class="layer-badge county">County</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Base Map</span>
+        </div>
+        <div class="basemap-options">
+          <button class="basemap-btn active" data-basemap="osm">Streets</button>
+          <button class="basemap-btn" data-basemap="satellite">Satellite</button>
+          <button class="basemap-btn" data-basemap="topo">Topo</button>
+          <button class="basemap-btn" data-basemap="light">Light</button>
+        </div>
+      </div>
+
+      <div class="sidebar-section opacity-controls" id="opacitySection">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Opacity</span>
+        </div>
+        <div class="opacity-row">
+          <label class="opacity-label">Parcels</label>
+          <input type="range" min="0" max="1" step="0.05" value="0.8" data-opacity="parcels" class="opacity-slider" />
+        </div>
+        <div class="opacity-row">
+          <label class="opacity-label">Zoning</label>
+          <input type="range" min="0" max="1" step="0.05" value="0.5" data-opacity="zoning" class="opacity-slider" />
+        </div>
+      </div>
+    </aside>
+
+    <!-- Map -->
+    <div class="map-container">
+      <div id="map"></div>
+
+      <!-- Map overlays -->
+      <div class="map-status" id="mapStatus">
+        <div class="status-dot"></div>
+        <span id="statusText">Loading layers…</span>
+      </div>
+
+      <div class="map-coords" id="mapCoords">—</div>
+
+      <div class="map-zoom-controls">
+        <button class="map-zoom-btn" id="zoomIn" aria-label="Zoom in">+</button>
+        <button class="map-zoom-btn" id="zoomOut" aria-label="Zoom out">−</button>
+        <button class="map-zoom-btn" id="zoomHome" aria-label="Reset view" title="Reset to Santa Barbara">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </button>
+      </div>
+
+      <!-- Loading overlay -->
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <span>Querying ArcGIS server…</span>
+      </div>
+    </div>
+
+    <!-- Resize handle for the right sidebar (drag to widen/narrow) -->
+    <div class="sidebar-resize-handle" id="sidebarResizeHandle" role="separator" aria-orientation="vertical" aria-label="Resize details panel" title="Drag to resize"></div>
+
+    <!-- Right panel: property details + data table -->
+    <aside class="sidebar-right" id="sidebarRight">
+      <!-- Empty state -->
+      <div class="detail-empty" id="detailEmpty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-faint)" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <p>Click a parcel on the map or search by address / APN to view property details</p>
+      </div>
+
+      <!-- Property detail panel -->
+      <div class="detail-panel" id="detailPanel" style="display:none">
+        <div class="detail-header">
+          <div>
+            <div class="detail-apn" id="detailApn"></div>
+            <div class="detail-address" id="detailAddress"></div>
+          </div>
+          <div class="detail-actions">
+            <button class="btn-icon btn-sm" id="exportParcel" title="Export this parcel as GeoJSON">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <button class="btn-icon btn-sm" id="closeDetail" title="Close panel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="detail-tabs">
+          <button class="detail-tab" data-tab="report">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Dev Report
+          </button>
+          <button class="detail-tab active" data-tab="parcel">Parcel</button>
+          <button class="detail-tab" data-tab="zoning">Zoning</button>
+          <button class="detail-tab" data-tab="fire">Fire/Hazard</button>
+          <button class="detail-tab" data-tab="data">Data</button>
+          <button class="detail-tab" data-tab="raw">Raw</button>
+        </div>
+
+        <!-- ── Developer Report Tab ── -->
+        <div class="tab-content" id="tabReport" hidden>
+          <!-- Loading state -->
+          <div class="report-loading" id="reportLoading">
+            <div class="report-loading-spinner"></div>
+            <span>Analyzing parcel…</span>
+          </div>
+
+          <!-- Report content (shown once analysis is done) -->
+          <div class="report-body" id="reportBody" style="display:none">
+
+            <!-- Score banner -->
+            <div class="report-score-banner" id="reportScoreBanner">
+              <div class="report-score-left">
+                <div class="report-score-number" id="reportScoreNum"></div>
+                <div class="report-score-label" id="reportScoreLabel"></div>
+              </div>
+              <div class="report-score-right">
+                <div class="report-score-zone" id="reportScoreZone"></div>
+                <div class="report-score-sublabel">Opportunity Score</div>
+              </div>
+            </div>
+
+            <!-- Alert bar (coastal/fire/historic/flood warnings) -->
+            <div class="report-alerts" id="reportAlerts"></div>
+
+            <!-- How many total units can I build? -->
+            <div class="report-section">
+              <div class="report-section-title report-section-title--lead">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                How Many Total Units Can I Build?
+              </div>
+              <div class="unit-count-grid" id="reportUnitGrid"></div>
+              <div class="report-disclaimer" id="reportUnitDisclaimer"></div>
+            </div>
+
+            <!-- Buildable area -->
+            <div class="report-section" id="reportBuildableSection">
+              <div class="report-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                Buildable Area
+              </div>
+              <div class="detail-grid" id="reportBuildableGrid"></div>
+            </div>
+
+            <!-- Pro Forma Estimator -->
+            <div class="report-section pf-section" id="reportProFormaSection">
+              <div class="report-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Pro Forma Estimator
+              </div>
+
+              <!-- Scenario + mode controls -->
+              <div class="pf-controls">
+                <div class="pf-control-row">
+                  <label class="pf-label">Project Scenario</label>
+                  <select class="pf-select" id="pfScenario">
+                    <option value="ADU_DETACHED">🏠 Detached ADU</option>
+                    <option value="ADU_ATTACHED">🏠 Attached ADU</option>
+                    <option value="JADU">🚪 JADU (Interior Conversion)</option>
+                    <option value="SFR_NEW">🏡 New Single-Family Home</option>
+                    <option value="DUPLEX_SB9">🏘 SB 9 Duplex / Two-Unit</option>
+                    <option value="SHRA_TOWNHOME">🏗 SHRA Townhomes (SB 684/1123)</option>
+                    <option value="CONDO_MF">🏢 Multi-Family / Condo</option>
+                    <option value="REMODEL">🔨 Major Remodel / Addition</option>
+                  </select>
+                </div>
+                <div class="pf-input-grid">
+                  <div class="pf-field">
+                    <label class="pf-label">Units</label>
+                    <input type="number" class="pf-input" id="pfUnits" value="1" min="1" max="20" />
+                  </div>
+                  <div class="pf-field">
+                    <label class="pf-label">Avg Unit Size (sq ft)</label>
+                    <input type="number" class="pf-input" id="pfSqft" value="800" min="200" max="5000" step="50" />
+                  </div>
+                  <div class="pf-field">
+                    <label class="pf-label">Land / Acquisition ($)</label>
+                    <input type="number" class="pf-input" id="pfLandValue" value="0" min="0" step="10000" />
+                  </div>
+                </div>
+                <!-- For-Sale vs Hold-Rent toggle -->
+                <div class="pf-mode-toggle">
+                  <button class="pf-mode-btn active" data-mode="sale" id="pfModeSale">For Sale</button>
+                  <button class="pf-mode-btn" data-mode="rent" id="pfModeRent">Hold &amp; Rent</button>
+                </div>
+                <button class="btn-primary pf-run-btn" id="pfRunBtn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Run Estimate
+                </button>
+              </div>
+
+              <!-- Output area -->
+              <div class="pf-output" id="pfOutput" style="display:none">
+
+                <!-- Summary KPI cards -->
+                <div class="pf-kpi-grid" id="pfKpiGrid"></div>
+
+                <!-- Cost breakdown bar chart -->
+                <div class="pf-breakdown" id="pfBreakdown"></div>
+
+                <!-- Rental income table (shown in rent mode) -->
+                <div class="pf-rental" id="pfRental" style="display:none"></div>
+
+                <!-- Assumptions -->
+                <details class="pf-assumptions" id="pfAssumptions">
+                  <summary>Assumptions &amp; Data Sources</summary>
+                  <ul id="pfAssumptionList"></ul>
+                </details>
+
+                <!-- Advanced Metrics: IRR / NPV / Equity Multiple -->
+                <div id="reportAdvancedMetrics"></div>
+
+                <div class="pf-disclaimer">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  Planning-level estimate only. Costs calibrated to Santa Barbara South Coast market (2024–25). Engage a licensed contractor and financial advisor before making investment decisions.
+                </div>
+              </div>
+            </div>
+
+            <!-- State law cards -->
+            <div class="report-section">
+              <div class="report-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                CA State Law Analysis
+              </div>
+              <div class="law-cards" id="reportLawCards"></div>
+            </div>
+
+            <!-- Parking (AB 2097) -->
+            <div class="report-section" id="reportParkingSection">
+              <div class="report-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
+                Parking (AB 2097)
+              </div>
+              <div class="detail-grid" id="reportParkingGrid"></div>
+            </div>
+
+            <!-- Restrictions -->
+            <div class="report-section">
+              <div class="report-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                Restrictions &amp; Overlays
+              </div>
+              <div class="restriction-cards" id="reportRestrictions"></div>
+            </div>
+
+            <!-- Permits required -->
+            <div class="report-section">
+              <div class="report-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Permits Required
+              </div>
+              <div class="permit-list" id="reportPermits"></div>
+            </div>
+
+            <!-- Score factors -->
+            <div class="report-section">
+              <div class="report-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Score Factors
+              </div>
+              <div class="score-factors" id="reportScoreFactors"></div>
+            </div>
+
+            <!-- Regulatory Flags -->
+            <div class="report-section" id="reportRegulatorySection">
+              <div class="report-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                Regulatory Flags
+              </div>
+              <div id="reportRegulatoryFlags"></div>
+            </div>
+
+            <div class="report-footer">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Analysis based on live ArcGIS data. Not legal advice. Always verify with Santa Barbara Planning Division before committing to a project.
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tabParcel">
+          <!-- Street View embed -->
+          <div id="svContainer" style="margin-bottom:12px"></div>
+          <div class="detail-grid" id="parcelGrid"></div>
+        </div>
+        <div class="tab-content" id="tabZoning" hidden>
+          <div class="detail-grid" id="zoningGrid"></div>
+        </div>
+        <div class="tab-content" id="tabFire" hidden>
+          <div class="detail-grid" id="fireGrid"></div>
+        </div>
+
+        <!-- ── Data Tab ── -->
+        <div class="tab-content" id="tabData" hidden>
+          <!-- Permit History -->
+          <div class="report-section">
+            <div class="report-section-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Permit History
+            </div>
+            <div id="permitHistoryContainer"><div class="detail-row"><span class="detail-val" style="color:var(--color-text-muted)">Loading…</span></div></div>
+          </div>
+
+          <!-- Nearby ADU Comps -->
+          <div class="report-section">
+            <div class="report-section-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Nearby ADU Activity (Comps)
+            </div>
+            <div id="aduCompsContainer"><div class="detail-row"><span class="detail-val" style="color:var(--color-text-muted)">Loading…</span></div></div>
+          </div>
+
+          <!-- Schools -->
+          <div class="report-section">
+            <div class="report-section-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+              Nearby Schools
+            </div>
+            <div id="schoolsContainer"><div class="detail-row"><span class="detail-val" style="color:var(--color-text-muted)">Loading…</span></div></div>
+          </div>
+
+          <!-- Water Pressure Zone -->
+          <div class="report-section">
+            <div class="report-section-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>
+              Water Pressure Zone
+            </div>
+            <div id="waterZoneContainer"><div class="detail-row"><span class="detail-val" style="color:var(--color-text-muted)">Loading…</span></div></div>
+          </div>
+
+          <!-- Ownership Signals -->
+          <div class="report-section">
+            <div class="report-section-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Ownership Signals
+            </div>
+            <div id="ownershipContainer"><div class="detail-row"><span class="detail-val" style="color:var(--color-text-muted)">Loading…</span></div></div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tabRaw" hidden>
+          <pre class="raw-data" id="rawData"></pre>
+        </div>
+      </div>
+
+      <!-- Results table (inside sidebar-right, shown when multiple parcels load) -->
+      <div class="results-section" id="resultsSection" style="display:none">
+        <div class="results-header">
+          <span class="results-title" id="resultsTitle">Search Results</span>
+          <div class="results-actions">
+            <button class="btn-outline btn-sm" id="exportAll">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export GeoJSON
+            </button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="dataTable">
+            <thead>
+              <tr>
+                <th>APN</th>
+                <th>Address</th>
+                <th>Owner</th>
+                <th>Land Use</th>
+                <th>Acreage</th>
+                <th>Net AV</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- proj4 for coordinate projection (NAD83 California Zone 5 → WGS84) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+  <!-- Developer planning analyzer -->
+  <script src="analyzer.js"></script>
+  <!-- Pro forma estimator -->
+  <script src="proforma.js"></script>
+  <!-- Professional feature modules -->
+  <script src="datafeatures.js"></script>
+  <script src="comparison.js"></script>
+  <script src="advanced_proforma.js"></script>
+  <script src="pdfexport.js"></script>
+  <script src="uiwiring.js"></script>
+  <script src="app.js"></script>
+
+  <!-- ── Mobile UX Controller ───────────────────────────── -->
+  <script>
+  (function initMobile() {
+    var MOBILE_BP = 768;
+    function isMobile() { return window.innerWidth <= MOBILE_BP; }
+
+    // ── Overlay element ──────────────────────────────────────
+    var overlay = document.createElement('div');
+    overlay.className = 'mob-overlay';
+    document.body.appendChild(overlay);
+
+    // ── Layer toggle button ──────────────────────────────────
+    var layerBtn = document.createElement('button');
+    layerBtn.id = 'layerToggleBtn';
+    layerBtn.setAttribute('aria-label', 'Toggle layers');
+    layerBtn.style.display = 'none';
+    layerBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>';
+    // Insert into header-left
+    var headerLeft = document.querySelector('.header-left');
+    if (headerLeft) headerLeft.appendChild(layerBtn);
+
+    var sidebarLeft = document.getElementById('sidebarLeft');
+
+    function openDrawer() {
+      if (!sidebarLeft) return;
+      sidebarLeft.classList.add('mob-open');
+      overlay.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeDrawer() {
+      if (!sidebarLeft) return;
+      sidebarLeft.classList.remove('mob-open');
+      overlay.classList.remove('visible');
+      document.body.style.overflow = '';
+    }
+
+    layerBtn.addEventListener('click', function() {
+      if (sidebarLeft.classList.contains('mob-open')) closeDrawer();
+      else openDrawer();
+    });
+    overlay.addEventListener('click', function() {
+      closeDrawer();
+      closePanel();
+    });
+
+    // ── Bottom sheet (detail panel) ──────────────────────────
+    var sidebarRight = document.querySelector('.sidebar-right');
+
+    function openPanel() {
+      if (!sidebarRight || !isMobile()) return;
+      sidebarRight.classList.add('mob-panel-open');
+      // Show overlay behind panel (lower z-index), unless drawer is open
+      if (!sidebarLeft.classList.contains('mob-open')) {
+        overlay.classList.add('visible');
+      }
+    }
+    function closePanel() {
+      if (!sidebarRight) return;
+      sidebarRight.classList.remove('mob-panel-open');
+      overlay.classList.remove('visible');
+    }
+
+    // Expose so app.js can call openPanel after parcel load
+    window.MobileUI = { openPanel: openPanel, closePanel: closePanel, isMobile: isMobile };
+
+    // ── Drag-to-dismiss the bottom sheet ────────────────────
+    if (sidebarRight) {
+      var startY = 0, currentY = 0, dragging = false;
+
+      sidebarRight.addEventListener('touchstart', function(e) {
+        // Only start drag if touch is near the top (drag handle area)
+        var touch = e.touches[0];
+        var rect = sidebarRight.getBoundingClientRect();
+        if (touch.clientY - rect.top < 40) {
+          startY = touch.clientY;
+          dragging = true;
+        }
+      }, { passive: true });
+
+      sidebarRight.addEventListener('touchmove', function(e) {
+        if (!dragging) return;
+        currentY = e.touches[0].clientY;
+        var dy = Math.max(0, currentY - startY);
+        sidebarRight.style.transform = 'translateY(' + dy + 'px)';
+      }, { passive: true });
+
+      sidebarRight.addEventListener('touchend', function() {
+        if (!dragging) return;
+        dragging = false;
+        var dy = currentY - startY;
+        sidebarRight.style.transform = '';
+        if (dy > 100) {
+          closePanel();
+        }
+        startY = 0; currentY = 0;
+      });
+    }
+
+    // ── Apply / remove mobile state on resize ────────────────
+    function applyMobileState() {
+      var mob = isMobile();
+      layerBtn.style.display = mob ? 'flex' : 'none';
+      if (!mob) {
+        closeDrawer();
+        closePanel();
+        if (sidebarRight) sidebarRight.style.transform = '';
+      }
+    }
+
+    // ── Hook into app.js parcel selection ────────────────────
+    // Watch for detailPanel OR resultsSection becoming visible → open bottom sheet
+    if (sidebarRight) {
+      var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+          if (m.attributeName === 'style' || m.attributeName === 'class') {
+            var dp = document.getElementById('detailPanel');
+            var rs = document.getElementById('resultsSection');
+            var dpVisible = dp && dp.style.display !== 'none' && dp.style.display !== '';
+            var rsVisible = rs && rs.style.display !== 'none' && rs.style.display !== '';
+            if ((dpVisible || rsVisible) && isMobile()) {
+              openPanel();
+            }
+          }
+        });
+      });
+      var dp = document.getElementById('detailPanel');
+      if (dp) observer.observe(dp, { attributes: true });
+      var rs = document.getElementById('resultsSection');
+      if (rs) observer.observe(rs, { attributes: true });
+
+      // Also observe sidebar-right display changes (app.js may show it directly)
+      observer.observe(sidebarRight, { attributes: true });
+    }
+
+    // Sync real header height to CSS variable for resultsSection positioning
+    function syncHeaderHeight() {
+      var h = document.querySelector('.app-header')?.offsetHeight || 56;
+      document.documentElement.style.setProperty('--header-h', h + 'px');
+    }
+
+    window.addEventListener('resize', function() {
+      applyMobileState();
+      syncHeaderHeight();
+    });
+    applyMobileState();
+    // ── Right Sidebar Resize Handle (desktop only) ──────────────
+    // Drag the left edge of the right sidebar to widen/narrow.
+    // Width persists across sessions via localStorage.
+    (function initSidebarResize() {
+      var handle = document.getElementById('sidebarResizeHandle');
+      if (!handle) return;
+      var root = document.documentElement;
+      var MIN_W = 320;       // minimum width — keep content legible
+      var MAX_FRACTION = 0.75; // never let sidebar take more than 75% of viewport
+      var STORAGE_KEY = 'bap.sidebarRightWidth';
+
+      // Restore saved width on load (desktop only)
+      function applyWidth(px) {
+        var maxPx = window.innerWidth * MAX_FRACTION;
+        px = Math.max(MIN_W, Math.min(px, maxPx));
+        root.style.setProperty('--sidebar-right-w', px + 'px');
+        return px;
+      }
+      var saved = parseInt(localStorage.getItem(STORAGE_KEY) || '', 10);
+      if (saved && window.innerWidth > 900) applyWidth(saved);
+
+      var dragging = false;
+      var startX = 0;
+      var startW = 0;
+
+      function onPointerDown(e) {
+        // Skip if mobile
+        if (window.innerWidth <= 900) return;
+        dragging = true;
+        startX = e.clientX;
+        var sidebar = document.querySelector('.sidebar-right');
+        startW = sidebar ? sidebar.offsetWidth : 440;
+        handle.classList.add('is-dragging');
+        document.body.classList.add('is-resizing-sidebar');
+        handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      }
+      function onPointerMove(e) {
+        if (!dragging) return;
+        // Drag right = sidebar shrinks; drag left = sidebar grows
+        var delta = startX - e.clientX;
+        applyWidth(startW + delta);
+      }
+      function onPointerUp(e) {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('is-dragging');
+        document.body.classList.remove('is-resizing-sidebar');
+        // Persist
+        var sidebar = document.querySelector('.sidebar-right');
+        if (sidebar) localStorage.setItem(STORAGE_KEY, sidebar.offsetWidth);
+        // Trigger a map resize so Leaflet recalculates its tiles
+        if (window.state && window.state.map) {
+          setTimeout(function() { window.state.map.invalidateSize(); }, 50);
+        }
+      }
+      // Double-click to reset to default
+      function onDoubleClick() {
+        if (window.innerWidth <= 900) return;
+        root.style.removeProperty('--sidebar-right-w');
+        localStorage.removeItem(STORAGE_KEY);
+        if (window.state && window.state.map) {
+          setTimeout(function() { window.state.map.invalidateSize(); }, 50);
+        }
+      }
+
+      handle.addEventListener('pointerdown', onPointerDown);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      handle.addEventListener('dblclick', onDoubleClick);
+
+      // Keep within bounds if the viewport is resized
+      window.addEventListener('resize', function() {
+        var sidebar = document.querySelector('.sidebar-right');
+        if (!sidebar || window.innerWidth <= 900) return;
+        applyWidth(sidebar.offsetWidth);
+      });
+    })();
+
+    // Run after fonts/layout settle
+    requestAnimationFrame(function() { setTimeout(syncHeaderHeight, 100); });
+  })();
+  </script>
+<script data-pplx-inline-edit>
+(function(){
+  if(window===window.top)return;
+  function inlineAll(orig,clone){
+    if(orig.nodeType!==1)return;
+    try{
+      var cs=getComputedStyle(orig);
+      var t='';
+      for(var i=0;i<cs.length;i++){t+=cs[i]+':'+cs.getPropertyValue(cs[i])+';';}
+      clone.style.cssText=t;
+    }catch(e){}
+    var oc=orig.children,cc=clone.children;
+    for(var j=0;j<oc.length&&j<cc.length;j++){inlineAll(oc[j],cc[j]);}
+  }
+  function stripExternal(clone){
+    var imgs=clone.querySelectorAll('img');
+    for(var i=0;i<imgs.length;i++){
+      var s=imgs[i].getAttribute('src');
+      if(s&&!s.startsWith('data:'))imgs[i].removeAttribute('src');
+    }
+    var all=clone.querySelectorAll('*');
+    for(var i=0;i<all.length;i++){
+      var st=all[i].style.cssText;
+      if(st&&st.indexOf('url(')>=0){
+        all[i].style.cssText=st.replace(/url\(["']?(?!data:)[^)"']*["']?\)/gi,'none');
+      }
+    }
+  }
+  var scrollRaf=0;
+  function emitScroll(){
+    scrollRaf=0;
+    var x=window.scrollX||window.pageXOffset||0;
+    var y=window.scrollY||window.pageYOffset||0;
+    window.parent.postMessage({type:'INLINE_EDIT_SCROLL',scrollX:x,scrollY:y},'*');
+  }
+  window.addEventListener('scroll',function(){
+    if(scrollRaf)return;
+    scrollRaf=requestAnimationFrame(emitScroll);
+  },{passive:true,capture:true});
+  emitScroll();
+  window.addEventListener('message',function(e){
+    if(!e.data||e.data.type!=='INLINE_EDIT_CAPTURE_REQUEST')return;
+    var scrollX=window.scrollX||window.pageXOffset||0;
+    var scrollY=window.scrollY||window.pageYOffset||0;
+    var w=window.innerWidth,h=window.innerHeight;
+    try{
+      var clone=document.documentElement.cloneNode(true);
+      var rm=clone.querySelectorAll('script,link[rel="stylesheet"],style');
+      for(var i=0;i<rm.length;i++){rm[i].remove();}
+      inlineAll(document.documentElement,clone);
+      stripExternal(clone);
+      var html=new XMLSerializer().serializeToString(clone);
+      var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
+        +'<foreignObject width="100%" height="100%">'
+        +'<div xmlns="http://www.w3.org/1999/xhtml" style="width:'+w+'px;height:'+h+'px;overflow:hidden">'
+        +'<div style="transform:translate(-'+scrollX+'px,-'+scrollY+'px);transform-origin:top left">'
+        +html+'</div></div></foreignObject></svg>';
+      var svgUrl='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+      var img=new Image();
+      img.onload=function(){
+        var c=document.createElement('canvas');c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0);
+        window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:c.toDataURL('image/png'),scrollX:scrollX,scrollY:scrollY},'*');
+      };
+      img.onerror=function(){
+        window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:null,scrollX:scrollX,scrollY:scrollY},'*');
+      };
+      img.src=svgUrl;
+    }catch(err){
+      window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:null,scrollX:scrollX,scrollY:scrollY},'*');
+    }
+  });
+})();
+</script></body>
+</html>
