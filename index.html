@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Santa Barbara Parcel Explorer</title>
+  <title>SB Property Analyzer — Bildsten Architecture & Planning</title>
   <meta name="description" content="Interactive GIS viewer for Santa Barbara City parcel data — search by address or APN, explore zoning, fire assessment areas, city limits, and more." />
 
   <!-- Leaflet CSS -->
@@ -14,6 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style_public.css" />
 </head>
 <body>
   <!-- Header -->
@@ -27,7 +29,7 @@
       </svg>
       <div class="header-title-group">
         <span class="header-title">SB Parcel Explorer</span>
-        <span class="header-sub">City of Santa Barbara · Live GIS Data</span>
+        <span class="header-sub">City of Santa Barbara · <a href="https://www.sb-designgroup.com" target="_blank" style="color:inherit;opacity:0.7">Bildsten Architecture & Planning</a></span>
       </div>
     </div>
 
@@ -53,10 +55,6 @@
       <button class="btn-icon" data-theme-toggle aria-label="Toggle dark mode">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       </button>
-      <a href="https://gisportal.santabarbaraca.gov/server1/rest/services/CitySantaBarbara/MapServer" target="_blank" class="btn-outline btn-sm">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        ArcGIS REST
-      </a>
     </div>
   </header>
 
@@ -234,7 +232,6 @@
           <button class="detail-tab" data-tab="zoning">Zoning</button>
           <button class="detail-tab" data-tab="fire">Fire/Hazard</button>
           <button class="detail-tab" data-tab="data">Data</button>
-          <button class="detail-tab" data-tab="raw">Raw</button>
         </div>
 
         <!-- ── Developer Report Tab ── -->
@@ -282,7 +279,16 @@
               <div class="detail-grid" id="reportBuildableGrid"></div>
             </div>
 
-            <!-- Pro Forma Estimator -->
+            <!-- Pro Forma Estimator — ROI lock for public -->
+            <div class="gate-section gate-roi" id="gateRoiSection">
+              <div class="gate-overlay gate-overlay--roi">
+                <div class="gate-box">
+                  <div class="gate-icon">📊</div>
+                  <div class="gate-title">Pro Forma ROI Estimator</div>
+                  <div class="gate-body">Contact BAP to run a full financial feasibility analysis for this parcel.</div>
+                  <a href="mailto:bap@sb-designgroup.com?subject=ROI%20Analysis%20Request" class="gate-btn gate-btn--contact">Contact BAP →</a>
+                </div>
+              </div>
             <div class="report-section pf-section" id="reportProFormaSection">
               <div class="report-section-title">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -357,6 +363,23 @@
               </div>
             </div>
 
+            </div><!-- /gate-roi -->
+
+            <!-- Email gate: wraps State Law + everything below -->
+            <div class="gate-section gate-email" id="gateEmailSection">
+              <div class="gate-overlay gate-overlay--email" id="gateEmailOverlay">
+                <div class="gate-box">
+                  <div class="gate-icon">🔍</div>
+                  <div class="gate-title">Unlock Full Analysis</div>
+                  <div class="gate-body">Enter your email to access CA State Law pathways, parking analysis, restrictions, and more.</div>
+                  <form class="gate-form" id="gateEmailForm" onsubmit="return false">
+                    <input type="email" class="gate-input" id="gateEmailInput" placeholder="your@email.com" required />
+                    <button type="submit" class="gate-btn" id="gateEmailSubmit">Unlock Free Access</button>
+                  </form>
+                  <div class="gate-fine">No spam. BAP may reach out about your property.</div>
+                </div>
+              </div>
+
             <!-- State law cards -->
             <div class="report-section">
               <div class="report-section-title">
@@ -410,6 +433,8 @@
               </div>
               <div id="reportRegulatoryFlags"></div>
             </div>
+
+            </div><!-- /gate-email -->
 
             <div class="report-footer">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -478,9 +503,6 @@
           </div>
         </div>
 
-        <div class="tab-content" id="tabRaw" hidden>
-          <pre class="raw-data" id="rawData"></pre>
-        </div>
       </div>
 
       <!-- Results table (inside sidebar-right, shown when multiple parcels load) -->
@@ -531,6 +553,7 @@
   <script src="pdfexport.js"></script>
   <script src="uiwiring.js"></script>
   <script src="app.js"></script>
+  <script src="public_gate.js"></script>
 
   <!-- ── Mobile UX Controller ───────────────────────────── -->
   <script>
