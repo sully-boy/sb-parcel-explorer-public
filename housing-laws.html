@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>California Housing Laws | Bildsten Architecture & Planning</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #1a1a1a;
+    --text: #f0ede8;
+    --red: #c0392b;
+    --red-light: #e74c3c;
+    --gray: #2d2d2d;
+    --gray-mid: #444;
+    --caption: #999;
+    --font-display: 'Arial Narrow', 'Arial Nova Cond', 'Helvetica Neue', Arial, sans-serif;
+    --font-body: 'Arial Narrow', 'Arial Nova Cond', 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  /* HERO */
+  .hero {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0 8vw;
+    border-bottom: 1px solid var(--gray-mid);
+    position: relative;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 8vw; right: 8vw;
+    height: 1px;
+    background: linear-gradient(to right, var(--red), transparent);
+  }
+  .hero-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 1.5rem;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: normal;
+    line-height: 1.1;
+    max-width: 800px;
+    margin-bottom: 2rem;
+  }
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--caption);
+    max-width: 500px;
+    line-height: 1.7;
+  }
+  .scroll-hint {
+    position: absolute;
+    bottom: 3rem;
+    left: 8vw;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--caption);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .scroll-hint::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 1px;
+    background: var(--red);
+  }
+
+  .law-section { padding: 0; }
+
+  /* section heading bar — sits between divider number and images */
+  .section-heading {
+    padding: 2.5rem 8vw 2rem;
+    border-bottom: 1px solid var(--gray);
+  }
+  .section-heading h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 3vw, 2.6rem);
+    font-weight: normal;
+    color: var(--text);
+    line-height: 1.15;
+  }
+
+  /* image block */
+  .image-block {
+    padding: 3.5rem 8vw;
+    border-bottom: 1px solid var(--gray);
+  }
+  .image-block-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .image-block img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--gray-mid);
+  }
+  .image-caption {
+    margin-top: 0.75rem;
+    font-size: 12px;
+    color: var(--caption);
+    letter-spacing: 0.05em;
+  }
+  .image-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  .image-trio {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  /* static law card (no video) */
+  .law-card {
+    padding: 4rem 8vw;
+    border-bottom: 1px solid var(--gray);
+    background: #111;
+  }
+  .law-card-inner { max-width: 700px; }
+  .law-name-static {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: normal;
+    line-height: 1.1;
+    margin-bottom: 1.25rem;
+    color: var(--text);
+  }
+  .law-summary-static {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: rgba(240,237,232,0.85);
+    max-width: 600px;
+    padding: 1.25rem 1.5rem;
+    border-left: 3px solid var(--red);
+    background: rgba(255,255,255,0.04);
+    margin-top: 1rem;
+  }
+  .law-summary-static ul { padding-left: 1.25rem; margin-top: 0.5rem; }
+  .law-summary-static li { margin-bottom: 0.4rem; }
+
+  /* video block */
+  .video-block {
+    position: relative;
+    background: #000;
+    border-bottom: 1px solid var(--gray);
+  }
+  .video-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 4rem 8vw;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, transparent 100%);
+    z-index: 2;
+    /* no transition here — JS controls fade */
+  }
+  .video-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .law-label {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 0.75rem;
+  }
+  .law-name {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: normal;
+    line-height: 1.1;
+    margin-bottom: 1.25rem;
+    max-width: 700px;
+  }
+  .law-summary {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: rgba(240,237,232,0.85);
+    max-width: 600px;
+    background: rgba(0,0,0,0.4);
+    padding: 1.25rem 1.5rem;
+    border-left: 3px solid var(--red);
+  }
+  .law-summary ul { padding-left: 1.25rem; margin-top: 0.5rem; }
+  .law-summary li { margin-bottom: 0.4rem; }
+
+  /* keep scrolling nudge shown after video ends */
+  .keep-scrolling {
+    display: none;
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text);
+    z-index: 3;
+    align-items: center;
+    gap: 0.6rem;
+    animation: nudge 1.6s ease-in-out infinite;
+  }
+  .keep-scrolling.visible { display: flex; }
+  .keep-scrolling::after {
+    content: '↓';
+    font-size: 14px;
+  }
+  @keyframes nudge {
+    0%, 100% { opacity: 0.5; transform: translateX(-50%) translateY(0); }
+    50% { opacity: 1; transform: translateX(-50%) translateY(4px); }
+  }
+
+  .video-wrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+  }
+  .video-wrapper iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  /* freeze overlay — covers Vimeo end screen */
+  .freeze-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    background: transparent;
+    cursor: default;
+  }
+  .freeze-overlay.active { display: block; }
+
+  /* second video hidden until first ends */
+  .video-block.secondary { display: none; }
+  .video-block.secondary.visible { display: block; }
+
+  /* divider */
+  .law-divider {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 3rem 8vw;
+    border-bottom: 1px solid var(--gray);
+  }
+  .law-divider-num {
+    font-family: var(--font-display);
+    font-size: 4rem;
+    color: var(--gray-mid);
+    line-height: 1;
+    min-width: 60px;
+  }
+  .law-divider-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--red), transparent);
+  }
+
+  /* footer */
+  footer {
+    padding: 4rem 8vw;
+    border-top: 1px solid var(--gray-mid);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  footer .bap {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--caption);
+  }
+  footer .disclaimer {
+    font-size: 11px;
+    color: var(--caption);
+    max-width: 500px;
+    line-height: 1.6;
+  }
+
+  .begin-btn {
+    margin-top: 2.5rem;
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 1rem 2.5rem;
+    font-family: var(--font-body);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .begin-btn:hover { background: var(--red-light); transform: translateY(-2px); }
+  .begin-btn:active { transform: translateY(0); }
+  body.locked { overflow: hidden; }
+
+  @media (max-width: 900px) {
+    .image-trio { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    .image-pair, .image-trio { grid-template-columns: 1fr; }
+    .law-summary, .law-summary-static { font-size: 0.82rem; }
+    .law-name, .law-name-static { font-size: 2rem; }
+    footer { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <p class="hero-eyebrow">Bildsten Architecture & Planning</p>
+  <h1>California Housing Laws<br>Explained</h1>
+  <p class="hero-sub">Eight state laws reshaping what's possible on single-family and multifamily parcels across California. Scroll to explore each one.</p>
+  <button class="begin-btn" id="beginBtn">Begin</button>
+</section>
+
+
+<!-- ── 01 SB 9 ── -->
+<div class="law-divider">
+  <span class="law-divider-num">01</span>
+  <div class="law-divider-line"></div>
+</div>
+
+<section class="law-section" id="sb9">
+  <div class="section-heading">
+    <h2>Senate Bill (SB) 9, Urban Lot Splits</h2>
+  </div>
+  <div class="image-block">
+    <div class="image-block-inner">
+      <div class="image-pair">
+        <div>
+          <img src="SB9 Before.jpeg" alt="SB 9 — existing single-family lot">
+          <p class="image-caption">Existing single-family lot</p>
+        </div>
+        <div>
+          <img src="SB 9 Before and after_1.jpeg" alt="SB 9 — after lot split with two duplexes">
+          <p class="image-caption">After urban lot split: two duplexes, four units</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="video-block" data-law="sb9">
+    <div class="video-overlay" id="overlay-sb9">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name">SB 9</h2>
+      <div class="law-summary">
+        Requires ministerial approval of single-family homes and duplexes and/or urban lot splits on single-family zoned parcels. Allows up to four residences per R-1 lot (i.e., two duplexes on two lots). SB 450 (2024) removed additional barriers, but there's more to do.
+      </div>
+    </div>
+    <div class="freeze-overlay" id="freeze-sb9"></div>
+    <div class="keep-scrolling" id="ks-sb9">Keep scrolling</div>
+    <div class="video-wrapper">
+      <iframe id="iframe-sb9"
+        src="https://player.vimeo.com/video/1204030108?autoplay=0&muted=0&controls=1&title=0&byline=0&portrait=0"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── 02 ADU SINGLE-FAMILY ── -->
+<div class="law-divider">
+  <span class="law-divider-num">02</span>
+  <div class="law-divider-line"></div>
+</div>
+
+<section class="law-section" id="adu">
+  <div class="section-heading">
+    <h2>ADU Law, Single-Family</h2>
+  </div>
+  <div class="image-block">
+    <div class="image-block-inner">
+      <div class="image-pair">
+        <div>
+          <img src="SB9 Before.jpeg" alt="ADU — existing single-family lot before ADU">
+          <p class="image-caption">Existing single-family lot</p>
+        </div>
+        <div>
+          <img src="ADU After.jpeg" alt="ADU — lot after adding attached and detached ADU">
+          <p class="image-caption">After: attached conversion ADU + detached new construction ADU</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="video-block" data-law="adu">
+    <div class="video-overlay" id="overlay-adu">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name">ADU Law</h2>
+      <div class="law-summary">
+        Local agencies must adopt an ADU ordinance meeting certain criteria and approve ADUs meeting certain state standards:
+        <ul>
+          <li>1 attached/conversion ADU and 1 Junior ADU (&lt;500 sf)</li>
+          <li>1 detached new construction ADU</li>
+        </ul>
+      </div>
+    </div>
+    <div class="freeze-overlay" id="freeze-adu"></div>
+    <div class="keep-scrolling" id="ks-adu">Keep scrolling</div>
+    <div class="video-wrapper">
+      <iframe id="iframe-adu"
+        src="https://player.vimeo.com/video/1204030537?autoplay=0&muted=0&controls=1&title=0&byline=0&portrait=0"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── 03 SB 1123 / SHRA SINGLE-FAMILY ── -->
+<div class="law-divider">
+  <span class="law-divider-num">03</span>
+  <div class="law-divider-line"></div>
+</div>
+
+<section class="law-section" id="shra-sf">
+  <div class="section-heading">
+    <h2>Starter Home Revitalization Act (SB 1123), Single-Family</h2>
+  </div>
+  <div class="image-block">
+    <div class="image-block-inner">
+      <div class="image-pair">
+        <div>
+          <img src="SB9 Before.jpeg" alt="SB 1123 — existing vacant lot">
+          <p class="image-caption">Qualifying vacant R-1 parcel</p>
+        </div>
+        <div>
+          <img src="SHRA AFTER.jpeg" alt="SB 1123 — after subdivision into starter homes">
+          <p class="image-caption">After ministerial subdivision: starter homes with ADUs</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="video-block" data-law="shra-sf">
+    <div class="video-overlay" id="overlay-shra-sf">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name">SB 1123<br><em style="font-size:0.65em;font-style:normal;color:var(--caption)">Starter Home Revitalization Act — Single-Family</em></h2>
+      <div class="law-summary">
+        Local agencies must ministerially approve residential subdivisions of up to 10 parcels on vacant single-family zoned parcels up to 1.5 acres meeting certain criteria.
+        <ul>
+          <li>Resulting parcels must be &gt;1,200 sf in single-family zones</li>
+          <li>Average unit size &lt;1,750 net habitable sf</li>
+          <li>Resulting lots create relatively low-cost ownership opportunity</li>
+        </ul>
+      </div>
+    </div>
+    <div class="freeze-overlay" id="freeze-shra-sf"></div>
+    <div class="keep-scrolling" id="ks-shra-sf">Keep scrolling</div>
+    <div class="video-wrapper">
+      <iframe id="iframe-shra-sf"
+        src="https://player.vimeo.com/video/1204267841?autoplay=0&muted=0&controls=1&title=0&byline=0&portrait=0"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── 04 SB 4 ── -->
+<div class="law-divider">
+  <span class="law-divider-num">04</span>
+  <div class="law-divider-line"></div>
+</div>
+
+<section class="law-section" id="sb4">
+  <div class="section-heading">
+    <h2>SB 4</h2>
+  </div>
+  <div class="video-block" data-law="sb4">
+    <div class="video-overlay" id="overlay-sb4">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name">SB 4<br><em style="font-size:0.65em;font-style:normal;color:var(--caption)">Faith Lands Act</em></h2>
+      <div class="law-summary">
+        Requires ministerial approval of residential projects meeting certain infill criteria on land owned by either an independent higher education or religious institution.
+        <ul>
+          <li>Projects must be 100% affordable to low income households (with up to 20% of units for moderate income)</li>
+          <li>Also allows childcare facilities</li>
+        </ul>
+      </div>
+    </div>
+    <div class="freeze-overlay" id="freeze-sb4"></div>
+    <div class="keep-scrolling" id="ks-sb4">Keep scrolling</div>
+    <div class="video-wrapper">
+      <iframe id="iframe-sb4"
+        src="https://player.vimeo.com/video/1204264913?autoplay=0&muted=0&controls=1&title=0&byline=0&portrait=0"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── 05 ADU LAW MULTI-FAMILY / SB 1211 + SHRA MF ── -->
+<div class="law-divider">
+  <span class="law-divider-num">05</span>
+  <div class="law-divider-line"></div>
+</div>
+
+<section class="law-section" id="adu-mf">
+  <div class="section-heading">
+    <h2>ADU Law, Multi-Family</h2>
+  </div>
+  <div class="image-block">
+    <div class="image-block-inner">
+      <div class="image-pair">
+        <div>
+          <img src="SB 1211_2namenity existing.jpeg" alt="SB 1211 — existing apartment complex with surface parking">
+          <p class="image-caption">Existing multifamily site with surface parking</p>
+        </div>
+        <div>
+          <img src="SB 1211_2 amenity after c.jpeg" alt="SB 1211 — detached ADUs added in surface parking area">
+          <p class="image-caption">Detached ADUs added to underutilized surface parking</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video 1 of 2 -->
+  <div class="video-block" data-law="adu-mf-1">
+    <div class="video-overlay" id="overlay-adu-mf-1">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name">SB 1211<br><em style="font-size:0.65em;font-style:normal;color:var(--caption)">ADU Multi-Family</em></h2>
+      <div class="law-summary">
+        Development can match the number of existing units with up to 8 detached ADUs, and conversion of non-livable space for up to 25% of the existing units to create a new interior ADU.
+      </div>
+    </div>
+    <div class="freeze-overlay" id="freeze-adu-mf-1"></div>
+    <div class="keep-scrolling" id="ks-adu-mf-1">Keep scrolling</div>
+    <div class="video-wrapper">
+      <iframe id="iframe-adu-mf-1"
+        src="https://player.vimeo.com/video/1204032027?autoplay=0&muted=0&controls=1&title=0&byline=0&portrait=0"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+
+  <!-- Video 2 of 2 -->
+  <div class="video-block secondary" id="adu-mf-2-block" data-law="adu-mf-2">
+    <div class="video-overlay" id="overlay-adu-mf-2">
+      <p class="law-label">State Law — continued</p>
+      <h2 class="law-name">SB 1211<br><em style="font-size:0.65em;font-style:normal;color:var(--caption)">ADU Multi-Family</em></h2>
+    </div>
+    <div class="freeze-overlay" id="freeze-adu-mf-2"></div>
+    <div class="keep-scrolling" id="ks-adu-mf-2">Keep scrolling</div>
+    <div class="video-wrapper">
+      <iframe id="iframe-adu-mf-2"
+        src="https://player.vimeo.com/video/1204266832?autoplay=0&muted=0&controls=1&title=0&byline=0&portrait=0"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+
+  <!-- SHRA MF: heading + text first, then image -->
+  <div class="law-card">
+    <div class="law-card-inner">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name-static">Starter Home Revitalization Act<br><em style="font-size:0.65em;font-style:normal;color:var(--caption)">Multi-Family</em></h2>
+      <div class="law-summary-static">
+        Local agencies must ministerially review subdivisions of up to 10 parcels on qualifying multi-family zoned parcels up to 5 acres.
+        <ul>
+          <li>Resulting parcels must be &gt;600 sf in multi-family zones</li>
+          <li>Units can be attached or detached</li>
+          <li>Resulting lots create relatively low-cost ownership opportunity</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="image-block">
+    <div class="image-block-inner">
+      <img src="MULTIFAMILY SHRA AFTER.jpeg" alt="SHRA Multi-Family — after ministerial subdivision">
+      <p class="image-caption">SHRA Multi-Family: ministerial subdivision on qualifying multifamily-zoned parcels</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── 06 DENSITY BONUS LAW ── -->
+<div class="law-divider">
+  <span class="law-divider-num">06</span>
+  <div class="law-divider-line"></div>
+</div>
+
+<section class="law-section" id="dbl">
+  <div class="section-heading">
+    <h2>Density Bonus Law</h2>
+  </div>
+  <div class="image-block">
+    <div class="image-block-inner">
+      <div class="image-trio">
+        <div>
+          <img src="density bonus before.jpeg" alt="Density Bonus — existing site">
+          <p class="image-caption">Existing site</p>
+        </div>
+        <div>
+          <img src="Density Bonus After 1st floor.jpeg" alt="Density Bonus — 1st floor with bonus units">
+          <p class="image-caption">1st floor with bonus units and reduced setbacks</p>
+        </div>
+        <div>
+          <img src="dbl after 2nd floor.jpeg" alt="Density Bonus — 2nd floor plan">
+          <p class="image-caption">2nd floor plan</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="video-block" data-law="dbl">
+    <div class="video-overlay" id="overlay-dbl">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name">Density Bonus Law</h2>
+      <div class="law-summary">
+        Incentivizes the private development of deed-restricted affordable housing by offering:
+        <ul>
+          <li>Density bonus up to 138.75%</li>
+          <li>Incentives/concessions</li>
+          <li>Waivers or reductions in development standards</li>
+          <li>Reduced parking ratios</li>
+          <li>Applicable to 5+ unit projects</li>
+        </ul>
+      </div>
+    </div>
+    <div class="freeze-overlay" id="freeze-dbl"></div>
+    <div class="keep-scrolling" id="ks-dbl">Keep scrolling</div>
+    <div class="video-wrapper">
+      <iframe id="iframe-dbl"
+        src="https://player.vimeo.com/video/1204268803?autoplay=0&muted=0&controls=1&title=0&byline=0&portrait=0"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── 07 ADAPTIVE REUSE (no video) ── -->
+<div class="law-divider">
+  <span class="law-divider-num">07</span>
+  <div class="law-divider-line"></div>
+</div>
+
+<section class="law-section" id="adaptive">
+  <!-- heading + text first -->
+  <div class="law-card">
+    <div class="law-card-inner">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name-static">Adaptive Reuse</h2>
+      <div class="law-summary-static">
+        Local agencies must permit the conversion of existing commercial/industrial buildings to residential or mixed use where qualifying projects meet certain affordability requirements and labor standards.
+        <ul>
+          <li>Rental: 8% low-income + 5% extremely low income units, or 15% lower income units</li>
+          <li>Owner-occupied: 30% moderate income or 15% lower income units</li>
+          <li>Historic preservation standards apply to buildings older than 50 years</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <!-- images after — full bleed -->
+  <div class="image-block" style="padding-left:0;padding-right:0;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+      <div style="position:relative;">
+        <img src="Adaptive Reuse Before.JPG" alt="Adaptive Reuse — existing commercial building" style="width:100%;height:100%;object-fit:cover;display:block;border:none;">
+        <p class="image-caption" style="padding:0.6rem 2rem;">Existing commercial building</p>
+      </div>
+      <div style="position:relative;">
+        <img src="adaptive reuse view after.jpeg" alt="Adaptive Reuse — converted to residential" style="width:100%;height:100%;object-fit:cover;display:block;border:none;">
+        <p class="image-caption" style="padding:0.6rem 2rem;">Converted to residential use</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── 08 SB 35 / SB 423 ── -->
+<div class="law-divider">
+  <span class="law-divider-num">08</span>
+  <div class="law-divider-line"></div>
+</div>
+
+<section class="law-section" id="sb35">
+  <div class="section-heading">
+    <h2>SB 35</h2>
+  </div>
+  <div class="video-block" data-law="sb35">
+    <div class="video-overlay" id="overlay-sb35">
+      <p class="law-label">State Law</p>
+      <h2 class="law-name">SB 35 / SB 423</h2>
+      <div class="law-summary">
+        Requires ministerial approval of qualifying multifamily and mixed-use affordable housing projects in jurisdictions that have not made sufficient progress on their RHNA goals. Projects must meet criteria including:
+        <ul>
+          <li>Located on property meeting certain site conditions</li>
+          <li>Prevailing wage and trained workforce requirements for projects with &gt;10 units</li>
+        </ul>
+      </div>
+    </div>
+    <div class="freeze-overlay" id="freeze-sb35"></div>
+    <div class="keep-scrolling" id="ks-sb35">Keep scrolling</div>
+    <div class="video-wrapper">
+      <iframe id="iframe-sb35"
+        src="https://player.vimeo.com/video/1204269616?autoplay=0&muted=0&controls=1&title=0&byline=0&portrait=0"
+        allow="autoplay; fullscreen; picture-in-picture" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+</section>
+
+
+<!-- FOOTER -->
+<footer>
+  <div class="bap">Bildsten Architecture & Planning<br>30 W. Figueroa Street · Santa Barbara, CA · 805-845-2646</div>
+  <div class="disclaimer">This content is prepared for educational purposes. It does not constitute legal or financial advice. State housing laws are subject to change and interpretation. Verify all regulatory thresholds with the applicable jurisdiction before making entitlement applications or investment decisions.</div>
+</footer>
+
+
+<script>
+  // Video IDs that have their own freeze/keep-scrolling elements
+  const videoIds = ['sb9', 'adu', 'shra-sf', 'sb4', 'adu-mf-1', 'adu-mf-2', 'dbl', 'sb35'];
+
+  document.body.classList.add('locked');
+
+  document.getElementById('beginBtn').addEventListener('click', () => {
+    document.body.classList.remove('locked');
+    document.getElementById('beginBtn').style.display = 'none';
+    const hint = document.createElement('p');
+    hint.className = 'scroll-hint';
+    hint.textContent = 'Scroll to explore';
+    document.getElementById('beginBtn').parentNode.appendChild(hint);
+    startObserver();
+  });
+
+  // Listen for Vimeo postMessage events (finish)
+  window.addEventListener('message', function(e) {
+    if (typeof e.data !== 'string') return;
+    try {
+      const data = JSON.parse(e.data);
+      if (data.event !== 'finish') return;
+
+      // Find which iframe sent this
+      videoIds.forEach(id => {
+        const iframe = document.getElementById('iframe-' + id);
+        if (iframe && e.source === iframe.contentWindow) {
+          onVideoEnd(id, iframe);
+        }
+      });
+    } catch(err) {}
+  });
+
+  function onVideoEnd(id, iframe) {
+    // Freeze: cover iframe to block Vimeo end screen
+    const freeze = document.getElementById('freeze-' + id);
+    if (freeze) freeze.classList.add('active');
+
+    // Show keep scrolling nudge
+    const ks = document.getElementById('ks-' + id);
+    if (ks) ks.classList.add('visible');
+
+    // Special: first SB1211 video ending reveals second
+    if (id === 'adu-mf-1') {
+      const block2 = document.getElementById('adu-mf-2-block');
+      block2.classList.add('visible');
+      const iframe2 = document.getElementById('iframe-adu-mf-2');
+      iframe2.src = iframe2.src.replace('autoplay=0', 'autoplay=1');
+      const overlay2 = document.getElementById('overlay-adu-mf-2');
+      if (overlay2) {
+        overlay2.style.transition = 'opacity 1.2s ease';
+        setTimeout(() => overlay2.classList.add('hidden'), 2200);
+      }
+      // Register finish listener for second video too (already handled above)
+    }
+  }
+
+  function registerVimeoEvents(iframe) {
+    // Tell Vimeo player to emit finish events
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ method: 'addEventListener', value: 'finish' }), '*'
+        );
+      } catch(e) {}
+    }, 1000);
+  }
+
+  function startObserver() {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const block = entry.target;
+        const law = block.getAttribute('data-law');
+        const overlay = document.getElementById('overlay-' + law);
+        const iframe  = document.getElementById('iframe-' + law);
+
+        // Overlay: show for full video duration (do NOT auto-hide)
+        // It will stay until video ends, then freeze-overlay covers it anyway
+        // We just ensure it's visible when video starts
+        if (overlay) {
+          overlay.style.transition = 'none';
+          overlay.classList.remove('hidden');
+        }
+
+        // Autoplay
+        if (iframe && iframe.src.includes('autoplay=0')) {
+          iframe.src = iframe.src.replace('autoplay=0', 'autoplay=1');
+          registerVimeoEvents(iframe);
+        }
+
+        observer.unobserve(block);
+      });
+    }, { threshold: 0.4 });
+
+    document.querySelectorAll('.video-block:not(.secondary)').forEach(block => {
+      observer.observe(block);
+    });
+  }
+</script>
+
+</body>
+</html>
