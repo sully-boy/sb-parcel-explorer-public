@@ -84,10 +84,10 @@ const state = {
   selectedAPN: null,
   lastSearchResults: [],
   layerOpacity: { parcels: 0.8, zoning: 0.5 },
-  // Compare mode
-  compareMode: false,        // true = next parcel click adds to compare
-  compareAPNs: [],           // ordered list of APNs in comparison
-  compareLayers: {},         // apn -> leaflet layer ref for re-highlight
+  compareMode: false,
+  compareAPNs: [],
+  compareLayers: {},
+  cityLimitsGeoJSON: null,  // stored for outside-city click blocking (public version)
   // Pending header context (for UIWiring)
   _pendingHeaderApn:  null,
   _pendingHeaderAddr: null,
@@ -396,6 +396,51 @@ function getMapEnvelope() {
 // ── Layer loaders ────────────────────────────────────────────
 
 // City Limits (always loaded)
+// ── Outside-city mask (public version) ───────────────────────
+function addOutsideCityMask(cityGeoJSON) {
+  if (!cityGeoJSON || !cityGeoJSON.features?.length) return;
+
+  // Build an inverted polygon: world bbox with city boundary as a hole
+  const worldRing = [[-180,-90],[180,-90],[180,90],[-180,90],[-180,-90]];
+
+  // Collect all city polygon rings
+  const cityRings = [];
+  cityGeoJSON.features.forEach(f => {
+    const geom = f.geometry;
+    if (!geom) return;
+    const polys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+    polys.forEach(poly => poly.forEach(ring => cityRings.push(ring)));
+  });
+
+  // GeoJSON polygon: outer ring = world, holes = city polygons
+  const maskGeoJSON = {
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [worldRing, ...cityRings],
+    },
+    properties: {},
+  };
+
+  // Remove existing mask then add fresh
+  if (state.activeFeatureLayers['city-mask']) {
+    state.map.removeLayer(state.activeFeatureLayers['city-mask']);
+    delete state.activeFeatureLayers['city-mask'];
+  }
+
+  const maskLayer = L.geoJSON(maskGeoJSON, {
+    style: {
+      fillColor: '#111111',
+      fillOpacity: 0.42,
+      color: 'transparent',
+      weight: 0,
+      interactive: false,
+    },
+  }).addTo(state.map);
+  maskLayer.bringToBack();
+  state.activeFeatureLayers['city-mask'] = maskLayer;
+}
+
 async function loadCityLimits() {
   try {
     setStatus('Loading City Limits…', 'loading');
@@ -405,6 +450,9 @@ async function loadCityLimits() {
     });
     if (!data.features?.length) return;
     const geojson = featuresToGeoJSON(data.features);
+    // Store for click-blocking in public version
+    state.cityLimitsGeoJSON = geojson;
+
     addOrReplaceLayer('city-limits', geojson, {
       color: '#1a5f7a',
       weight: 2.5,
@@ -412,6 +460,10 @@ async function loadCityLimits() {
       fillOpacity: 0,
       dashArray: '6 4',
     });
+
+    // Add grey mask outside city limits (public version: always add)
+    addOutsideCityMask(geojson);
+
     setStatus('City Limits loaded');
     if (document.querySelector('input[data-layer="city-limits"]').checked) {
       // already visible
@@ -496,21 +548,16 @@ async function loadParcelsInView() {
     setStatus(`${data.features.length} parcels loaded`);
     populateResultsTable(data.features);
     if (state.activeFeatureLayers['parcels']) state.activeFeatureLayers['parcels'].bringToFront();
-
-    // Re-apply highlights after layer reload
     if (state.compareAPNs.length > 0 || state.selectedAPN) {
-      const highlightAPNs = state.compareAPNs.length > 0
-        ? state.compareAPNs
-        : (state.selectedAPN ? [state.selectedAPN] : []);
+      const toHighlight = state.compareAPNs.length > 0 ? state.compareAPNs : (state.selectedAPN ? [state.selectedAPN] : []);
       state.activeFeatureLayers['parcels'].eachLayer(layer => {
         const p = layer.feature?.properties;
-        const layerApn = p?.apn || p?.apn9Digit;
-        if (layerApn && highlightAPNs.includes(layerApn)) {
+        const la = p?.apn || p?.apn9Digit;
+        if (la && toHighlight.includes(la)) {
           layer.setStyle({ fillOpacity: 0.7, weight: 2.5, color: '#c4611a' });
           layer.bringToFront();
-          // Update layer refs
-          state.compareLayers[layerApn] = layer;
-          if (layerApn === state.selectedAPN) state.selectedParcel = layer;
+          state.compareLayers[la] = layer;
+          if (la === state.selectedAPN) state.selectedParcel = layer;
         }
       });
     }
@@ -716,45 +763,60 @@ async function loadCountyParcelsInView() {
 function selectParcel(feature, leafletLayer) {
   const apn = feature.properties?.apn || feature.properties?.apn9Digit || null;
 
-  if (state.compareMode) {
-    // ── Compare mode: accumulate parcels ──────────────────────
-    if (apn && !state.compareAPNs.includes(apn)) {
-      state.compareAPNs.push(apn);
+  // Block clicks outside city limits (public version)
+  if (state.cityLimitsGeoJSON) {
+    const coords = feature.geometry?.coordinates;
+    if (coords) {
+      // Get parcel centroid from first ring
+      const ring = (feature.geometry.type === 'MultiPolygon')
+        ? coords[0][0] : coords[0];
+      const lngs = ring.map(p => p[0]);
+      const lats = ring.map(p => p[1]);
+      const clng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+      const clat = (Math.min(...lats) + Math.max(...lats)) / 2;
+      const pt = [clng, clat];
+
+      let insideCity = false;
+      state.cityLimitsGeoJSON.features.forEach(f => {
+        const geom = f.geometry;
+        if (!geom) return;
+        const polys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+        polys.forEach(poly => {
+          if (pointInPolygon(pt, poly[0])) insideCity = true;
+        });
+      });
+
+      if (!insideCity) {
+        showToast('This parcel is outside Santa Barbara city limits. This tool covers City of Santa Barbara parcels only.', 'warning');
+        return;
+      }
     }
+  }
+
+  if (state.compareMode) {
+    if (apn && !state.compareAPNs.includes(apn)) state.compareAPNs.push(apn);
     if (leafletLayer) {
       state.compareLayers[apn] = leafletLayer;
-      try {
-        leafletLayer.setStyle({ fillOpacity: 0.7, weight: 2.5, color: '#c4611a' });
-        leafletLayer.bringToFront();
-      } catch(e) {}
+      try { leafletLayer.setStyle({ fillOpacity: 0.7, weight: 2.5, color: '#c4611a' }); leafletLayer.bringToFront(); } catch(e) {}
     }
-    // Panel always switches to the newly clicked parcel
     state.selectedParcel = leafletLayer;
-    state.selectedAPN    = apn;
-    showParcelDetail(feature);  // synchronously populates window.currentParcelData + report
+    state.selectedAPN = apn;
+    showParcelDetail(feature);
     highlightTableRow(feature.properties?.OBJECTID || apn);
     loadAdjacentData(feature);
-
-    // Open comparison table if 2+ parcels
-    if (state.compareAPNs.length >= 2) {
-      if (window.UIWiring && typeof window.UIWiring.openComparePanelFor === 'function') {
-        window.UIWiring.openComparePanelFor(state.compareAPNs);
-      }
+    if (state.compareAPNs.length >= 2 && window.UIWiring?.openComparePanelFor) {
+      window.UIWiring.openComparePanelFor(state.compareAPNs);
     }
     return;
   }
 
-  // ── Normal mode: single selection ─────────────────────────
   if (state.selectedParcel && state.selectedParcel !== leafletLayer) {
     try { state.selectedParcel.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, weight: 1, color: '#1a5f7a' }); } catch(e) {}
   }
   state.selectedParcel = leafletLayer;
-  state.selectedAPN    = apn;
+  state.selectedAPN = apn;
   if (leafletLayer) {
-    try {
-      leafletLayer.setStyle({ fillOpacity: 0.7, weight: 2.5, color: '#c4611a' });
-      leafletLayer.bringToFront();
-    } catch(e) {}
+    try { leafletLayer.setStyle({ fillOpacity: 0.7, weight: 2.5, color: '#c4611a' }); leafletLayer.bringToFront(); } catch(e) {}
   }
   showParcelDetail(feature);
   highlightTableRow(feature.properties?.OBJECTID || apn);
@@ -791,8 +853,11 @@ async function loadAdjacentData(parcelFeature) {
   const sfhaFilter = "fldZone NOT IN ('X', 'X PROTECTED BY LEVEE', 'AREA NOT INCLUDED', 'OPEN WATER')";
 
   // ── Fire all spatial queries in parallel ──────────────────
-  const [zoningRes, chipsRes, hfRes, ffRes, coastRes, histRes, tpaRes, transitHMRes, gpRes, priorityHsgRes] = await Promise.allSettled([
-    queryLayer(CONFIG.LAYERS.zoning, { ...pointParams, outFields: 'zoneOther,zone1,zoneDescr,zonedesg,overlayZone,sD3' }),
+  const zoningRes = await queryLayer(CONFIG.LAYERS.zoning,
+    { ...pointParams, outFields: 'zoneOther,zone1,zoneDescr,zonedesg,overlayZone,sD3' }
+  ).then(r=>({status:'fulfilled',value:r})).catch(e=>({status:'rejected',reason:e}));
+
+  const [chipsRes, hfRes, ffRes, coastRes, histRes, tpaRes, transitHMRes, gpRes, priorityHsgRes] = await Promise.allSettled([
     queryLayer(CONFIG.LAYERS.assessmentChips, pointParams),
     queryLayer(CONFIG.LAYERS.highFire, pointParams),
     queryLayer(CONFIG.LAYERS.femaFlood, { ...pointParams, where: sfhaFilter }).catch(() => ({ features: [] })),
@@ -886,17 +951,10 @@ async function loadAdjacentData(parcelFeature) {
       report: report, pfResult: null, parcelAttrs: parcelAttrs,
       zoningAttrs: zoningAttrs, context: context
     };
-
-    // In compare mode, seed this parcel into the Comparison store now that
-    // currentParcelData is fully assembled with report + context
     if (state.compareMode && window.Comparison && _apn) {
-      if (window.Comparison.getParcel(_apn)) {
-        window.Comparison.removeParcel(_apn);
-      }
+      if (window.Comparison.getParcel && window.Comparison.getParcel(_apn)) window.Comparison.removeParcel(_apn);
       window.Comparison.addParcel(window.currentParcelData);
-      // Re-open comparison table to reflect fresh data
-      if (state.compareAPNs.length >= 2 && window.UIWiring &&
-          typeof window.UIWiring.openComparePanelFor === 'function') {
+      if (state.compareAPNs.length >= 2 && window.UIWiring?.openComparePanelFor) {
         window.UIWiring.openComparePanelFor(state.compareAPNs);
       }
     }
@@ -955,16 +1013,18 @@ function renderDeveloperReport(r) {
   const body = document.getElementById('reportBody');
   body.style.display = 'block';
 
-  // ── Score Banner ──────────────────────────────────────────
+  // ── Score Banner (absent in public version) ─────────────
   const banner = document.getElementById('reportScoreBanner');
-  banner.style.borderLeftColor = r.score.color;
-  banner.style.background = r.score.color + '12';
-  document.getElementById('reportScoreNum').textContent = r.score.score;
-  document.getElementById('reportScoreNum').style.color = r.score.color;
-  document.getElementById('reportScoreLabel').textContent = r.score.label;
-  document.getElementById('reportScoreLabel').style.color = r.score.color;
-  document.getElementById('reportScoreZone').textContent =
-    r.summary.zone ? ('Zone ' + r.summary.zone) : r.summary.category;
+  if (banner) {
+    banner.style.borderLeftColor = r.score.color;
+    banner.style.background = r.score.color + '12';
+    const sn = document.getElementById('reportScoreNum');
+    const sl = document.getElementById('reportScoreLabel');
+    const sz = document.getElementById('reportScoreZone');
+    if (sn) { sn.textContent = r.score.score; sn.style.color = r.score.color; }
+    if (sl) { sl.textContent = r.score.label; sl.style.color = r.score.color; }
+    if (sz) sz.textContent = r.summary.zone ? ('Zone ' + r.summary.zone) : r.summary.category;
+  }
 
   // ── Alert bar ────────────────────────────────────────────
   const alertsEl = document.getElementById('reportAlerts');
@@ -1823,8 +1883,9 @@ function showParcelDetail(feature) {
   populateZoningTab(null); // placeholder until async loads
   populateFireTab(null, false, null);
 
-  // Raw data
-  document.getElementById('rawData').textContent = JSON.stringify(p, null, 2);
+  // Raw data (absent in public version)
+  const rawDataEl = document.getElementById('rawData');
+  if (rawDataEl) rawDataEl.textContent = JSON.stringify(p, null, 2);
 
   // Store export handler so UIWiring can re-attach it after replacing .detail-actions
   window._handleExportParcel = () => exportGeoJSON([feature], `parcel_${apn}`);
@@ -1888,7 +1949,7 @@ function makeRow(key, val, cls = '') {
 }
 
 function populateParcelTab(p) {
-  const addr = [p.situs1, p.situs2].filter(Boolean).join(' ') ||
+  const addr = [p.Situs1, p.Situs2].filter(Boolean).join(' ') ||
     [p.SNum, p.SDir, p.SStreet, p.SStreetSuf].filter(Boolean).join(' ') || '—';
   const grid = document.getElementById('parcelGrid');
   grid.innerHTML = [
@@ -1904,12 +1965,12 @@ function populateParcelTab(p) {
     makeRow('Bathrooms', fmtVal(p.Bathrooms)),
     '<div style="height:4px;border-bottom:1px solid var(--color-divider);margin:4px 0"></div>',
     makeRow('Land Value', `<span class="money">${fmtCurrency(p.landValue)}</span>`),
-    makeRow('Struct. Impr.', `<span class="money">${fmtCurrency(p.StrImpr)}</span>`),
-    makeRow('Living Impr.', `<span class="money">${fmtCurrency(p.LivImpr)}</span>`),
+    makeRow('Struct. Impr.', `<span class="money">${fmtCurrency(p.strImpr)}</span>`),
+    makeRow('Living Impr.', `<span class="money">${fmtCurrency(p.livingImprovements)}</span>`),
     makeRow('Net AV', `<span class="money">${fmtCurrency(p.netAssessedValue)}</span>`),
-    makeRow('Exemptions', `<span class="money">${fmtCurrency(p.Exemptions)}</span>`),
-    makeRow('HomeOwner Ex.', `<span class="money">${fmtCurrency(p.HomeOwEx)}</span>`),
-    makeRow('Tax Bill', p.TaxBill ? `<a href="${p.TaxBill}" target="_blank" style="color:var(--color-primary)">View ↗</a>` : '—'),
+    makeRow('Exemptions', `<span class="money">${fmtCurrency(p.exemptions)}</span>`),
+    makeRow('HomeOwner Ex.', `<span class="money">${fmtCurrency(p.homeownerExemption)}</span>`),
+    makeRow('Tax Bill', p.taxBill ? `<a href="${p.taxBill}" target="_blank" style="color:var(--color-primary)">View ↗</a>` : '—'),
     '<div style="height:4px;border-bottom:1px solid var(--color-divider);margin:4px 0"></div>',
     makeRow('Tract Name', fmtVal(p.TractName)),
     makeRow('Map Type', fmtVal(p.MapType)),
@@ -2067,17 +2128,12 @@ function isAPN(q) {
   return /^\d{3}-?\d{3}-?\d{2,3}/.test(q.replace(/\s/g, ''));
 }
 
-// Expand spelled-out cardinal directions to abbreviations used in Situs addresses
 function normalizeDirectionQuery(q) {
   return q
-    .replace(/\bNorth\b/gi, 'N')
-    .replace(/\bSouth\b/gi, 'S')
-    .replace(/\bEast\b/gi, 'E')
-    .replace(/\bWest\b/gi, 'W')
-    .replace(/\bNortheast\b/gi, 'NE')
-    .replace(/\bNorthwest\b/gi, 'NW')
-    .replace(/\bSoutheast\b/gi, 'SE')
-    .replace(/\bSouthwest\b/gi, 'SW');
+    .replace(/\bNorth\b/gi,'N').replace(/\bSouth\b/gi,'S')
+    .replace(/\bEast\b/gi,'E').replace(/\bWest\b/gi,'W')
+    .replace(/\bNortheast\b/gi,'NE').replace(/\bNorthwest\b/gi,'NW')
+    .replace(/\bSoutheast\b/gi,'SE').replace(/\bSouthwest\b/gi,'SW');
 }
 
 async function liveSearch(q) {
@@ -2087,7 +2143,7 @@ async function liveSearch(q) {
     if (isAPN(q)) {
       const normalizedAPN = q.replace(/\s/g, '');
       const data = await queryLayer(CONFIG.LAYERS.parcels, {
-        where: `apn LIKE '${normalizedAPN}%'`,
+        where: `APN LIKE '${normalizedAPN}%'`,
         outFields: 'apn,situs1,situs2,ownerName,landUse',
         returnGeometry: 'false',
         resultRecordCount: 8,
@@ -2099,10 +2155,9 @@ async function liveSearch(q) {
         apn: f.attributes.apn,
       }));
     } else {
-      // Normalize spelled-out directions before querying
-      const qNorm = normalizeDirectionQuery(q).replace(/'/g, "''");
+      // Address search
       const data = await queryLayer(CONFIG.LAYERS.parcels, {
-        where: `UPPER(situs1) LIKE UPPER('%${qNorm}%')`,
+        where: `UPPER(Situs1) LIKE UPPER('%${q.replace(/'/g, "''")}%')`,
         outFields: 'apn,situs1,situs2,ownerName,landUse',
         returnGeometry: 'false',
         resultRecordCount: 8,
@@ -2379,28 +2434,24 @@ document.querySelectorAll('.detail-tab').forEach(tab => {
 });
 
 // ── Expose export handler for UIWiring re-attachment ────────
-window._handleExportParcel = null; // set in showParcelDetail
-window._appState = state;           // expose for UIWiring compare mode
+window._handleExportParcel = null;
+window._appState = state;
 
 // Close detail panel
 document.getElementById('closeDetail').addEventListener('click', () => {
   document.getElementById('detailPanel').style.display = 'none';
-  // Clear all compare highlights and state
-  state.compareAPNs.forEach(apn => {
-    const l = state.compareLayers[apn];
-    if (l) try { l.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, weight: 1, color: '#1a5f7a' }); } catch(e) {}
-  });
-  state.compareAPNs   = [];
-  state.compareLayers = {};
-  state.compareMode   = false;
-  // Clear cursor hint
-  const mapEl = document.getElementById('map');
-  if (mapEl) mapEl.classList.remove('compare-pick-mode');
   if (state.selectedParcel) {
     try { state.selectedParcel.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, weight: 1, color: '#1a5f7a' }); } catch(e) {}
     state.selectedParcel = null;
   }
   state.selectedAPN = null;
+  state.compareAPNs.forEach(apn => {
+    const l = state.compareLayers[apn];
+    if (l) try { l.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, weight: 1, color: '#1a5f7a' }); } catch(e) {}
+  });
+  state.compareAPNs = []; state.compareLayers = {}; state.compareMode = false;
+  const mapEl = document.getElementById('map');
+  if (mapEl) mapEl.classList.remove('compare-pick-mode');
   // If there are results in the table, show the results section; otherwise show empty state
   const hasResults = state.lastSearchResults && state.lastSearchResults.length > 0;
   if (hasResults) {
@@ -2418,7 +2469,7 @@ document.getElementById('closeDetail').addEventListener('click', () => {
 (function () {
   const t = document.querySelector('[data-theme-toggle]');
   const r = document.documentElement;
-  let d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  let d = r.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   r.setAttribute('data-theme', d);
   t && t.addEventListener('click', () => {
     d = d === 'dark' ? 'light' : 'dark';

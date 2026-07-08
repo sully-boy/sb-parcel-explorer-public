@@ -297,8 +297,7 @@ function renderTable() {
     colHeaders += '<th style="width:' + colW + '%;background:#1a3a5c;color:#fff;padding:8px 10px;font-size:0.75rem;font-weight:600;text-align:center;">' +
       '<div style="font-size:0.7rem;opacity:0.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;" title="' + p.address + '">' + p.address + '</div>' +
       '<div style="font-family:var(--font-mono,monospace);font-size:0.65rem;opacity:0.6;margin-top:2px;">' + p.apn + '</div>' +
-      '<button onclick="window.Comparison.removeParcel(\'' + safeApn + '\');document.dispatchEvent(new CustomEvent(\'sb:comparison:changed\',{detail:{action:\'remove\',apn:\'' + safeApn + '\'}}))" ' +
-        'style="margin-top:6px;font-size:0.65rem;padding:2px 8px;border:1px solid rgba(255,255,255,0.4);background:transparent;color:#fff;border-radius:3px;cursor:pointer;">Remove</button>' +
+      '' +
       '</th>';
   }
 
@@ -353,13 +352,12 @@ function renderTable() {
   zoneRow = '<tr>' + zoneRow + '</tr>';
 
   var tbody =
-    scoreRow +
     zoneRow +
     row('By-Right Units',     byRights,    bestByRight, String) +
     row('With State Law',     stateUnits,  bestState,   String) +
     row('Max Possible Units', maxUnitsArr, bestMax,     String) +
-    row('Total Dev Cost',     tdcArr,      bestTdc,     _fmt$) +
-    row('Est. Net Profit',    profitArr,   bestProfit,  _fmt$) +
+    row('Total Dev Cost',     tdcArr,      bestTdc,     function(v){ return '<span style="color:var(--color-accent,#c4611a);font-size:var(--text-xs)">Contact BAP</span>'; }) +
+    row('Est. Net Profit',    profitArr,   bestProfit,  function(v){ return '<span style="color:var(--color-accent,#c4611a);font-size:var(--text-xs)">Contact BAP</span>'; }) +
     row('ROI %',              roiArr,      bestRoi,     function(v){ return v ? v + '%' : '—'; }) +
     row('Acreage',            acrArr,      bestAcr,     function(v){ return v ? parseFloat(v).toFixed(3) + ' ac' : '—'; }) +
     row('Coastal Zone',  list.map(function(p){ return p.isCoastal; }),  -1, null, true) +
@@ -407,10 +405,8 @@ window.Comparison = {
   removeParcel: removeParcel,
   getAll:       getAll,
   clear:        clear,
-  clearAll:     clear,   // alias used by compare mode
-  getParcel:    function(apn) {
-    return _getList().find(function(e) { return e.apn === apn; }) || null;
-  },
+  clearAll:     clear,
+  getParcel:    function(apn) { return getAll().find(e => e.apn === apn) || null; },
   renderButton: renderButton,
   renderTable:  renderTable,
   // internal (exposed for button inline onclick handlers)

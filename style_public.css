@@ -3123,183 +3123,178 @@ body.is-resizing-watchlist .watchlist-resize-handle {
 }
 
 
-/* ============================================================
-   SB Parcel Explorer — Public Gate Styles
-   Append these to style.css in the public repo.
-   ============================================================ */
+/* ══════════════════════════════════════════════════
+   PUBLIC VERSION STYLES
+══════════════════════════════════════════════════ */
 
-/* ── Gate section wrappers ─────────────────────────────────── */
-.gate-section {
-  position: relative;
+/* Compare pick mode */
+#map.compare-pick-mode { cursor: crosshair !important; }
+#map.compare-pick-mode .leaflet-interactive { cursor: crosshair !important; }
+
+/* ── ROI locked card ─────────────────────────────── */
+.gate-roi-card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl, 12px);
+  padding: var(--space-5);
+  text-align: center;
+  margin: var(--space-3) 0;
+  box-shadow: var(--shadow-lg);
 }
+.gate-roi-card .gate-icon  { font-size: 26px; margin-bottom: var(--space-2); line-height:1; }
+.gate-roi-card .gate-title { font-size: var(--text-sm); font-weight: 700; color: var(--color-text); margin-bottom: var(--space-1); }
+.gate-roi-card .gate-body  { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.5; margin-bottom: var(--space-4); }
 
-/* Blurred content behind the overlay */
-.gate-section:not(.gate-unlocked) .report-section,
-.gate-section:not(.gate-unlocked) .pf-section {
+/* ── Teaser box ──────────────────────────────────── */
+.gate-teaser-box {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl, 12px);
+  padding: var(--space-4) var(--space-5);
+  text-align: center;
+  margin: var(--space-2) 0;
+  box-shadow: var(--shadow-sm);
+}
+.gate-teaser-box .gate-icon  { font-size: 22px; margin-bottom: var(--space-1); line-height:1; }
+.gate-teaser-box .gate-title { font-size: var(--text-sm); font-weight: 700; color: var(--color-text); margin-bottom: 4px; }
+.gate-teaser-box .gate-body  { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.5; margin-bottom: 0; }
+
+/* ── Email gate section ──────────────────────────── */
+.gate-section { position: relative; }
+
+/* Blur content inside gate until unlocked */
+.gate-section:not(.gate-unlocked) > *:not(.gate-overlay) {
   filter: blur(4px);
   pointer-events: none;
   user-select: none;
 }
-
-/* Once unlocked, remove blur */
-.gate-section.gate-unlocked .gate-overlay {
-  display: none !important;
-}
-.gate-section.gate-unlocked .report-section,
-.gate-section.gate-unlocked .pf-section {
+.gate-section.gate-unlocked .gate-overlay { display: none !important; }
+.gate-section.gate-unlocked > * {
   filter: none;
   pointer-events: auto;
   user-select: auto;
 }
 
-/* ── Gate overlay (sits above blurred content) ─────────────── */
+/* ── Gate overlay sits at top of section ─────────── */
 .gate-overlay {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 10;
   display: flex;
-  align-items: center;
   justify-content: center;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    var(--color-surface) 30%
-  );
+  padding: var(--space-4) var(--space-3) 0;
+  background: linear-gradient(to bottom, var(--color-surface) 60%, transparent 100%);
   transition: opacity 0.4s ease;
-  padding: var(--space-6) var(--space-4);
 }
-
-/* ROI overlay — smaller, self-contained */
-.gate-overlay--roi {
+/* Give the gate-section enough height to show blurred content behind */
+.gate-section.gate-email {
   position: relative;
-  inset: auto;
-  background: none;
-  padding: var(--space-2) 0 var(--space-4);
+  min-height: 280px;
 }
 
-/* ── Gate box (card inside overlay) ────────────────────────── */
+/* ── Gate box card ───────────────────────────────── */
 .gate-box {
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl, 12px);
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-5);
   text-align: center;
-  max-width: 320px;
   width: 100%;
+  max-width: 320px;
   box-shadow: var(--shadow-lg);
 }
+.gate-icon  { font-size: 26px; margin-bottom: var(--space-2); line-height: 1; display: block; }
+.gate-title { font-size: var(--text-sm); font-weight: 700; color: var(--color-text); margin-bottom: var(--space-1); display: block; }
+.gate-body  { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.5; margin-bottom: var(--space-4); display: block; }
+.gate-fine  { font-size: 11px; color: var(--color-text-faint, var(--color-text-muted)); margin-top: var(--space-2); line-height: 1.4; }
 
-.gate-icon {
-  font-size: 28px;
-  margin-bottom: var(--space-3);
-  line-height: 1;
-}
-
-.gate-title {
-  font-size: var(--text-base);
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: var(--space-2);
-}
-
-.gate-body {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  line-height: 1.5;
-  margin-bottom: var(--space-4);
-}
-
-/* ── Gate form ──────────────────────────────────────────────── */
-.gate-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
+/* ── Gate form ───────────────────────────────────── */
+.gate-form { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-3); }
 .gate-input {
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
-  font: inherit;
-  font-size: var(--text-sm);
-  width: 100%;
-  box-sizing: border-box;
-  transition: border-color 0.15s;
+  font: inherit; font-size: var(--text-sm);
+  width: 100%; box-sizing: border-box;
 }
-.gate-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
+.gate-input:focus { outline: none; border-color: var(--color-primary); }
 
-/* ── Gate button ────────────────────────────────────────────── */
+/* ── Gate buttons ────────────────────────────────── */
 .gate-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-flex; align-items: center; justify-content: center;
   padding: var(--space-2) var(--space-4);
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
-  text-decoration: none;
+  background: var(--color-primary); color: #fff;
+  border: none; border-radius: var(--radius-md);
+  font: inherit; font-size: var(--text-sm); font-weight: 600;
+  cursor: pointer; text-decoration: none;
+  transition: opacity 0.15s;
+  width: 100%;
 }
 .gate-btn:hover { opacity: 0.88; }
-.gate-btn:active { transform: scale(0.97); }
+.gate-btn--contact { background: var(--color-accent, #c4611a); }
 
-.gate-btn--contact {
-  background: var(--color-accent, #c4611a);
-}
-
-.gate-fine {
-  font-size: 11px;
-  color: var(--color-text-faint, var(--color-text-muted));
-  margin-top: var(--space-2);
-  line-height: 1.4;
-}
-
-/* ── PDF email modal (full-screen backdrop) ─────────────────── */
+/* ── PDF gate modal (centered full-screen) ───────── */
 .pdf-gate-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
 }
-
 .pdf-gate-modal {
   position: relative;
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl, 12px);
-  padding: var(--space-7, 32px) var(--space-6);
+  padding: 32px 28px;
   text-align: center;
-  max-width: 360px;
-  width: 100%;
-  box-shadow: var(--shadow-lg);
+  max-width: 340px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
-
 .pdf-gate-close {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  line-height: 1;
+  position: absolute; top: 12px; right: 12px;
+  background: none; border: none;
+  color: var(--color-text-muted); font-size: 16px;
+  cursor: pointer; padding: 4px 8px;
+  border-radius: var(--radius-sm); line-height: 1;
 }
 .pdf-gate-close:hover { color: var(--color-text); background: var(--color-surface-offset); }
+
+/* Modal z-index fix (above header) */
+.uw-modal-overlay { z-index: 3000 !important; }
+
+/* ── ROI blur section (public) ───────────────────── */
+.gate-section.gate-roi-blur {
+  position: relative;
+}
+.gate-section.gate-roi-blur .report-section,
+.gate-section.gate-roi-blur .pf-section {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+}
+/* Overlay card itself must NOT be blurred */
+.gate-section.gate-roi-blur .gate-overlay-abs,
+.gate-section.gate-roi-blur .gate-overlay-abs * {
+  filter: none !important;
+  pointer-events: all;
+}
+.gate-overlay-abs {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: linear-gradient(to bottom, var(--color-surface) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0) 60%, var(--color-surface) 100%);
+}
+
+/* ── Outside-city parcels: not-allowed cursor ── */
+.outside-city-parcel { cursor: not-allowed !important; }

@@ -20,7 +20,7 @@
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.50);
-      z-index: 1000;
+      z-index: 3000;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -473,21 +473,13 @@
       UIWiring.showModal('Parcel Comparison', html);
     },
 
-    /**
-     * Open comparison view seeded with a specific list of APNs.
-     * Used by compare mode in app.js after second parcel click.
-     */
     openComparisonViewForAPNs(apns) {
       let html;
-      if (window.Comparison && typeof window.Comparison.renderTable === 'function') {
-        // Build slot list from Comparison store filtered to these APNs
-        const slots = (apns || []).map(apn => {
-          const entry = window.Comparison.getParcel ? window.Comparison.getParcel(apn) : null;
-          return entry || { apn, address: apn };
-        });
+      if (window.Comparison?.renderTable) {
+        const slots = (apns || []).map(apn => window.Comparison.getParcel?.(apn) || { apn, address: apn });
         html = window.Comparison.renderTable(slots);
       } else {
-        html = `<p style="color:var(--color-text-muted)">Comparison data not yet loaded for all parcels.</p>`;
+        html = '<p style="color:var(--color-text-muted)">Loading comparison data…</p>';
       }
       UIWiring.showModal('Parcel Comparison', html);
     },
@@ -680,13 +672,13 @@
         </svg>
       </button>`;
 
-    const appState     = window._appState;
-    const inCompareMode = !!(appState && appState.compareMode && appState.compareAPNs && appState.compareAPNs.includes(apn));
+    const appState2 = window._appState;
+    const inCompareMode = !!(appState2?.compareMode && appState2?.compareAPNs?.includes(apn));
     const compareClass = inCompareMode ? 'compare-btn in-list' : 'compare-btn';
     const compareLabel = inCompareMode ? '✕ Exit Compare' : '+ Compare';
     const compareBtn   = `
       <button class="${compareClass}" id="compareToggleBtn"
-              aria-label="${inCompareMode ? 'Exit compare mode' : 'Enter compare mode — then click another parcel'}">
+              aria-label="${inCompareMode ? 'Exit compare mode' : 'Compare parcels'}">
         ${compareLabel}
       </button>`;
 
@@ -719,30 +711,20 @@
 
     // Compare toggle
     document.getElementById('compareToggleBtn').addEventListener('click', () => {
-      const appState = window._appState;  // exposed by app.js
+      const appState = window._appState;
       if (!appState) return;
 
       if (appState.compareMode) {
-        // Already in compare mode — clicking again exits compare mode
+        // Exit compare mode
         appState.compareMode = false;
-        appState.compareAPNs   = [];
-        appState.compareLayers = {};
-        appState.selectedAPN   = null;
-        // Reset all highlight styles
-        if (appState.activeFeatureLayers && appState.activeFeatureLayers['parcels']) {
+        appState.compareAPNs = []; appState.compareLayers = {}; appState.selectedAPN = null;
+        if (appState.activeFeatureLayers?.['parcels']) {
           appState.activeFeatureLayers['parcels'].eachLayer(l => {
             try { l.setStyle({ fillOpacity: appState.layerOpacity.parcels * 0.35, weight: 1, color: '#1a5f7a' }); } catch(e) {}
           });
         }
-        const mapEl = document.getElementById('map');
-        if (mapEl) mapEl.classList.remove('compare-pick-mode');
-        // Seed this parcel into compare data store for the current open panel
-        if (window.Comparison) {
-          var fullData = (window.currentParcelData && window.currentParcelData.apn === apn)
-            ? window.currentParcelData
-            : { apn, address, lat, lng, report, pfResult };
-          window.Comparison.clearAll ? window.Comparison.clearAll() : null;
-        }
+        document.getElementById('map')?.classList.remove('compare-pick-mode');
+        if (window.Comparison?.clearAll) window.Comparison.clearAll();
         updateParcelHeader(apn, address, lat, lng, report, pfResult);
         return;
       }
@@ -752,23 +734,13 @@
       appState.compareAPNs = [apn];
       appState.compareLayers = {};
       appState.selectedAPN = apn;
-
-      // Store this parcel's data so comparison table can use it
       if (window.Comparison) {
         if (window.Comparison.clearAll) window.Comparison.clearAll();
-        var fullData = (window.currentParcelData && window.currentParcelData.apn === apn)
-          ? window.currentParcelData
-          : { apn, address, lat, lng, report, pfResult };
-        window.Comparison.addParcel(fullData);
+        const fd = (window.currentParcelData?.apn === apn) ? window.currentParcelData : { apn, address, lat, lng, report, pfResult };
+        window.Comparison.addParcel(fd);
       }
-
-      // Visual cursor hint on map
-      const mapEl = document.getElementById('map');
-      if (mapEl) mapEl.classList.add('compare-pick-mode');
-
-      // Show banner hint
+      document.getElementById('map')?.classList.add('compare-pick-mode');
       _showToast('Compare mode: click a second parcel on the map', 'info');
-
       updateParcelHeader(apn, address, lat, lng, report, pfResult);
     });
 
