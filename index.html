@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SB Property Analyzer — Bildsten Architecture & Planning</title>
+  <title>Santa Barbara Parcel Explorer</title>
   <meta name="description" content="Interactive GIS viewer for Santa Barbara City parcel data — search by address or APN, explore zoning, fire assessment areas, city limits, and more." />
 
   <!-- Leaflet CSS -->
@@ -29,7 +28,7 @@
       </svg>
       <div class="header-title-group">
         <span class="header-title">SB Parcel Explorer</span>
-        <span class="header-sub">City of Santa Barbara · <a href="https://www.sb-designgroup.com" target="_blank" style="color:inherit;opacity:0.7">Bildsten Architecture & Planning</a></span>
+        <span class="header-sub">City of Santa Barbara · Live GIS Data</span>
       </div>
     </div>
 
@@ -224,18 +223,18 @@
         </div>
 
         <div class="detail-tabs">
-          <button class="detail-tab" data-tab="report">
+          <button class="detail-tab active" data-tab="report">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Dev Report
           </button>
-          <button class="detail-tab active" data-tab="parcel">Parcel</button>
+          <button class="detail-tab" data-tab="parcel">Parcel</button>
           <button class="detail-tab" data-tab="zoning">Zoning</button>
           <button class="detail-tab" data-tab="fire">Fire/Hazard</button>
           <button class="detail-tab" data-tab="data">Data</button>
         </div>
 
         <!-- ── Developer Report Tab ── -->
-        <div class="tab-content" id="tabReport" hidden>
+        <div class="tab-content" id="tabReport">
           <!-- Loading state -->
           <div class="report-loading" id="reportLoading">
             <div class="report-loading-spinner"></div>
@@ -245,17 +244,6 @@
           <!-- Report content (shown once analysis is done) -->
           <div class="report-body" id="reportBody" style="display:none">
 
-            <!-- Score banner -->
-            <div class="report-score-banner" id="reportScoreBanner">
-              <div class="report-score-left">
-                <div class="report-score-number" id="reportScoreNum"></div>
-                <div class="report-score-label" id="reportScoreLabel"></div>
-              </div>
-              <div class="report-score-right">
-                <div class="report-score-zone" id="reportScoreZone"></div>
-                <div class="report-score-sublabel">Opportunity Score</div>
-              </div>
-            </div>
 
             <!-- Alert bar (coastal/fire/historic/flood warnings) -->
             <div class="report-alerts" id="reportAlerts"></div>
@@ -279,9 +267,10 @@
               <div class="detail-grid" id="reportBuildableGrid"></div>
             </div>
 
-            <!-- Pro Forma Estimator — ROI lock for public -->
-            <div class="gate-section gate-roi" id="gateRoiSection">
-              <div class="gate-overlay gate-overlay--roi">
+            <!-- Pro Forma: blurred behind locked overlay -->
+            <div class="gate-section gate-roi-blur" id="gateRoiSection">
+              <!-- Lock card floats above blurred content -->
+              <div class="gate-overlay-abs" id="gateRoiOverlay">
                 <div class="gate-box">
                   <div class="gate-icon">📊</div>
                   <div class="gate-title">Pro Forma ROI Estimator</div>
@@ -289,89 +278,73 @@
                   <a href="mailto:bap@sb-designgroup.com?subject=ROI%20Analysis%20Request" class="gate-btn gate-btn--contact">Contact BAP →</a>
                 </div>
               </div>
-            <div class="report-section pf-section" id="reportProFormaSection">
-              <div class="report-section-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                Pro Forma Estimator
-              </div>
-
-              <!-- Scenario + mode controls -->
-              <div class="pf-controls">
-                <div class="pf-control-row">
-                  <label class="pf-label">Project Scenario</label>
-                  <select class="pf-select" id="pfScenario">
-                    <option value="ADU_DETACHED">🏠 Detached ADU</option>
-                    <option value="ADU_ATTACHED">🏠 Attached ADU</option>
-                    <option value="JADU">🚪 JADU (Interior Conversion)</option>
-                    <option value="SFR_NEW">🏡 New Single-Family Home</option>
-                    <option value="DUPLEX_SB9">🏘 SB 9 Duplex / Two-Unit</option>
-                    <option value="SHRA_TOWNHOME">🏗 SHRA Townhomes (SB 684/1123)</option>
-                    <option value="CONDO_MF">🏢 Multi-Family / Condo</option>
-                    <option value="REMODEL">🔨 Major Remodel / Addition</option>
-                  </select>
+              <!-- Pro Forma content — blurred behind the overlay -->
+              <div class="report-section pf-section" id="reportProFormaSection">
+                <div class="report-section-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  Pro Forma Estimator
                 </div>
-                <div class="pf-input-grid">
-                  <div class="pf-field">
-                    <label class="pf-label">Units</label>
-                    <input type="number" class="pf-input" id="pfUnits" value="1" min="1" max="20" />
+                <div class="pf-controls">
+                  <div class="pf-control-row">
+                    <label class="pf-label">Project Scenario</label>
+                    <select class="pf-select" id="pfScenario">
+                      <option value="ADU_DETACHED">🏠 Detached ADU</option>
+                      <option value="ADU_ATTACHED">🏠 Attached ADU</option>
+                      <option value="JADU">🚪 JADU (Interior Conversion)</option>
+                      <option value="SFR_NEW">🏡 New Single-Family Home</option>
+                      <option value="DUPLEX_SB9">🏘 SB 9 Duplex / Two-Unit</option>
+                      <option value="SHRA_TOWNHOME">🏗 SHRA Townhomes (SB 684/1123)</option>
+                      <option value="CONDO_MF">🏢 Multi-Family / Condo</option>
+                      <option value="REMODEL">🔨 Major Remodel / Addition</option>
+                    </select>
                   </div>
-                  <div class="pf-field">
-                    <label class="pf-label">Avg Unit Size (sq ft)</label>
-                    <input type="number" class="pf-input" id="pfSqft" value="800" min="200" max="5000" step="50" />
+                  <div class="pf-input-grid">
+                    <div class="pf-field">
+                      <label class="pf-label">Units</label>
+                      <input type="number" class="pf-input" id="pfUnits" value="1" min="1" max="20" />
+                    </div>
+                    <div class="pf-field">
+                      <label class="pf-label">Avg Unit Size (sq ft)</label>
+                      <input type="number" class="pf-input" id="pfSqft" value="800" min="200" max="5000" step="50" />
+                    </div>
+                    <div class="pf-field">
+                      <label class="pf-label">Land / Acquisition ($)</label>
+                      <input type="number" class="pf-input" id="pfLandValue" value="0" min="0" step="10000" />
+                    </div>
                   </div>
-                  <div class="pf-field">
-                    <label class="pf-label">Land / Acquisition ($)</label>
-                    <input type="number" class="pf-input" id="pfLandValue" value="0" min="0" step="10000" />
+                  <div class="pf-mode-toggle">
+                    <button class="pf-mode-btn active" data-mode="sale" id="pfModeSale">For Sale</button>
+                    <button class="pf-mode-btn" data-mode="rent" id="pfModeRent">Hold &amp; Rent</button>
                   </div>
+                  <button class="btn-primary pf-run-btn" id="pfRunBtn">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Run Estimate
+                  </button>
                 </div>
-                <!-- For-Sale vs Hold-Rent toggle -->
-                <div class="pf-mode-toggle">
-                  <button class="pf-mode-btn active" data-mode="sale" id="pfModeSale">For Sale</button>
-                  <button class="pf-mode-btn" data-mode="rent" id="pfModeRent">Hold &amp; Rent</button>
-                </div>
-                <button class="btn-primary pf-run-btn" id="pfRunBtn">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  Run Estimate
-                </button>
-              </div>
-
-              <!-- Output area -->
-              <div class="pf-output" id="pfOutput" style="display:none">
-
-                <!-- Summary KPI cards -->
-                <div class="pf-kpi-grid" id="pfKpiGrid"></div>
-
-                <!-- Cost breakdown bar chart -->
-                <div class="pf-breakdown" id="pfBreakdown"></div>
-
-                <!-- Rental income table (shown in rent mode) -->
-                <div class="pf-rental" id="pfRental" style="display:none"></div>
-
-                <!-- Assumptions -->
-                <details class="pf-assumptions" id="pfAssumptions">
-                  <summary>Assumptions &amp; Data Sources</summary>
-                  <ul id="pfAssumptionList"></ul>
-                </details>
-
-                <!-- Advanced Metrics: IRR / NPV / Equity Multiple -->
-                <div id="reportAdvancedMetrics"></div>
-
-                <div class="pf-disclaimer">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  Planning-level estimate only. Costs calibrated to Santa Barbara South Coast market (2024–25). Engage a licensed contractor and financial advisor before making investment decisions.
+                <div class="pf-output" id="pfOutput" style="display:none">
+                  <div class="pf-kpi-grid" id="pfKpiGrid"></div>
+                  <div class="pf-breakdown" id="pfBreakdown"></div>
+                  <div class="pf-rental" id="pfRental" style="display:none"></div>
+                  <details class="pf-assumptions" id="pfAssumptions">
+                    <summary>Assumptions &amp; Data Sources</summary>
+                    <ul id="pfAssumptionList"></ul>
+                  </details>
+                  <div id="reportAdvancedMetrics"></div>
+                  <div class="pf-disclaimer">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Planning-level estimate only. Costs calibrated to Santa Barbara South Coast market (2024–25). Engage a licensed contractor and financial advisor before making investment decisions.
+                  </div>
                 </div>
               </div>
-            </div>
+            </div><!-- /gate-roi-blur -->
 
-            </div><!-- /gate-roi -->
-
-            <!-- Email gate: wraps State Law + everything below -->
+            <!-- CA State Law: email gate -->
             <div class="gate-section gate-email" id="gateEmailSection">
               <div class="gate-overlay gate-overlay--email" id="gateEmailOverlay">
                 <div class="gate-box">
-                  <div class="gate-icon">🔍</div>
-                  <div class="gate-title">Unlock Full Analysis</div>
-                  <div class="gate-body">Enter your email to access CA State Law pathways, parking analysis, restrictions, and more.</div>
+                  <div class="gate-icon">🔐</div>
+                  <div class="gate-title">Unlock State Law Analysis</div>
+                  <div class="gate-body">Enter your email to access CA State Law pathways, ADU rules, density bonuses, and more.</div>
                   <form class="gate-form" id="gateEmailForm" onsubmit="return false">
                     <input type="email" class="gate-input" id="gateEmailInput" placeholder="your@email.com" required />
                     <button type="submit" class="gate-btn" id="gateEmailSubmit">Unlock Free Access</button>
@@ -380,14 +353,14 @@
                 </div>
               </div>
 
-            <!-- State law cards -->
-            <div class="report-section">
-              <div class="report-section-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                CA State Law Analysis
+              <!-- State law cards -->
+              <div class="report-section">
+                <div class="report-section-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  CA State Law Analysis
+                </div>
+                <div class="law-cards" id="reportLawCards"></div>
               </div>
-              <div class="law-cards" id="reportLawCards"></div>
-            </div>
 
             <!-- Parking (AB 2097) -->
             <div class="report-section" id="reportParkingSection">
@@ -443,7 +416,7 @@
           </div>
         </div>
 
-        <div class="tab-content" id="tabParcel">
+        <div class="tab-content" id="tabParcel" hidden>
           <!-- Street View embed -->
           <div id="svContainer" style="margin-bottom:12px"></div>
           <div class="detail-grid" id="parcelGrid"></div>
@@ -856,5 +829,16 @@
     }
   });
 })();
-</script></body>
+</script>
+  <!-- PDF Gate Modal -->
+  <div id="pdfGateModal" class="pdf-gate-modal-backdrop" style="display:none">
+    <div class="pdf-gate-modal">
+      <button class="pdf-gate-close" id="pdfGateClose">✕</button>
+      <div class="gate-icon">📄</div>
+      <div class="gate-title">Full Development Potential Analysis</div>
+      <div class="gate-body">Contact BAP to receive a full analysis of what’s possible on your property!</div>
+      <a href="mailto:bap@sb-designgroup.com?subject=Development%20Potential%20Analysis%20Request" class="gate-btn gate-btn--contact" style="margin-top:8px">Contact BAP →</a>
+    </div>
+  </div>
+</body>
 </html>
