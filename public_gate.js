@@ -63,16 +63,20 @@
         notifyBAP(email, currentAPN, 'Pro Forma ROI contact');
         submitToMailchimp(email, currentAPN, 'roi_contact');
 
-        // Swap the form for a short confirmation message
+        var subject = encodeURIComponent('ROI Analysis Request — APN ' + (currentAPN || ''));
+        var mailtoUrl = 'mailto:bap@sb-designgroup.com?subject=' + subject;
+
+        // Swap the form for a confirmation message with a manual fallback link
+        // (some browsers silently block the automatic mailto handoff below)
         var thanksMsg = document.createElement('div');
         thanksMsg.className = 'gate-fine';
         thanksMsg.style.marginTop = '10px';
-        thanksMsg.textContent = 'Thanks! Opening your email client…';
+        thanksMsg.innerHTML = 'Thanks! Opening your email client… ' +
+          '<a href="' + mailtoUrl + '" style="color:inherit;text-decoration:underline;">Click here if it didn\'t open.</a>';
         roiForm.replaceWith(thanksMsg);
 
-        // Still open the mail client so the visitor can send a direct note
-        var subject = encodeURIComponent('ROI Analysis Request — APN ' + (currentAPN || ''));
-        window.location.href = 'mailto:bap@sb-designgroup.com?subject=' + subject;
+        // Still attempt to open the mail client automatically
+        window.location.href = mailtoUrl;
       });
     }
 
