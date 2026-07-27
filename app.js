@@ -513,29 +513,45 @@ async function loadParcelsInView() {
         layer.on('mouseover', (e) => {
           layer.setStyle({ fillOpacity: 0.6, weight: 2 });
           layer.bringToFront();
+          // Build tooltip: always show address; append zone if zoning layer is on
           const zoningLayer = state.activeFeatureLayers['zoning'];
+          const addr = p.situs1 || p.apn || '';
+          let zonePart = null;
+
           if (zoningLayer) {
-            let zoneLabel = null;
+            const pt = [e.latlng.lng, e.latlng.lat];
             zoningLayer.eachLayer(function(zl) {
-              if (zoneLabel || !zl.feature) return;
-              if (zl.getBounds && !zl.getBounds().contains(e.latlng)) return;
-              const coords = zl.feature.geometry && zl.feature.geometry.coordinates;
-              const type = zl.feature.geometry && zl.feature.geometry.type;
-              if (!coords) return;
-              const rings = type === 'Polygon' ? [coords] : type === 'MultiPolygon' ? coords : null;
-              if (!rings) return;
-              const pt = [e.latlng.lng, e.latlng.lat];
-              for (const polygon of rings) {
-                if (pointInPolygon(pt, polygon[0])) {
+              if (zonePart || !zl.feature) return;
+              const geom = zl.feature.geometry;
+              if (!geom || !geom.coordinates) return;
+              const bounds = zl.getBounds ? zl.getBounds() : null;
+              if (bounds && !bounds.contains(e.latlng)) return;
+              // arcgisPolygonToGeoJSON stores all rings as a flat Polygon
+              // (not MultiPolygon), so coords is an array of rings where any
+              // ring could be an outer ring of a disconnected patch.
+              // Test every ring individually rather than just coords[0].
+              const rings = geom.coordinates; // array of rings
+              for (const ring of rings) {
+                if (pointInPolygon(pt, ring)) {
                   const zp = zl.feature.properties;
-                  const zRaw = zp.zoneOther || zp.zone1 || zp.zone || '';
+                  const zRaw = zp.zoneOther || zp.zone1 || zp.zonedesg || zp.zoneDescr || zp.zone || '';
                   const z = zRaw.split('/')[0].trim();
-                  if (z) zoneLabel = `<b>${z}</b>${ZONE_LABELS[z] ? '<br>' + ZONE_LABELS[z] : ''}`;
+                  if (z) {
+                    const desc = ZONE_LABELS[z] || zp.zoneDescr || '';
+                    zonePart = desc ? `${z} — ${desc}` : z;
+                  }
                   break;
                 }
               }
             });
-            if (zoneLabel) layer.bindTooltip(zoneLabel, { sticky: true, className: 'zone-tooltip' }).openTooltip(e.latlng);
+          }
+
+          const tipParts = [addr, zonePart].filter(Boolean);
+          if (tipParts.length) {
+            const tipHtml = addr
+              ? `${addr}${zonePart ? `<br/><span style="color:#b8860b;font-weight:700">${zonePart}</span>` : ''}`
+              : zonePart || '';
+            layer.bindTooltip(tipHtml, { sticky: true, className: 'zone-tooltip' }).openTooltip(e.latlng);
           }
         });
         layer.on('mouseout', () => {
@@ -554,7 +570,7 @@ async function loadParcelsInView() {
         const p = layer.feature?.properties;
         const la = p?.apn || p?.apn9Digit;
         if (la && toHighlight.includes(la)) {
-          layer.setStyle({ fillOpacity: 0.7, weight: 2.5, color: '#c4611a' });
+          layer.setStyle({ fillOpacity: 0.25, fillColor: '#b8860b', weight: 2.5, color: '#b8860b' });
           layer.bringToFront();
           state.compareLayers[la] = layer;
           if (la === state.selectedAPN) state.selectedParcel = layer;
@@ -797,7 +813,7 @@ function selectParcel(feature, leafletLayer) {
     if (apn && !state.compareAPNs.includes(apn)) state.compareAPNs.push(apn);
     if (leafletLayer) {
       state.compareLayers[apn] = leafletLayer;
-      try { leafletLayer.setStyle({ fillOpacity: 0.7, weight: 2.5, color: '#c4611a' }); leafletLayer.bringToFront(); } catch(e) {}
+      try { leafletLayer.setStyle({ fillOpacity: 0.25, fillColor: '#b8860b', weight: 2.5, color: '#b8860b' }); leafletLayer.bringToFront(); } catch(e) {}
     }
     state.selectedParcel = leafletLayer;
     state.selectedAPN = apn;
@@ -811,12 +827,12 @@ function selectParcel(feature, leafletLayer) {
   }
 
   if (state.selectedParcel && state.selectedParcel !== leafletLayer) {
-    try { state.selectedParcel.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, weight: 1, color: '#1a5f7a' }); } catch(e) {}
+    try { state.selectedParcel.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, fillColor: '', weight: 1, color: '#1a5f7a' }); } catch(e) {}
   }
   state.selectedParcel = leafletLayer;
   state.selectedAPN = apn;
   if (leafletLayer) {
-    try { leafletLayer.setStyle({ fillOpacity: 0.7, weight: 2.5, color: '#c4611a' }); leafletLayer.bringToFront(); } catch(e) {}
+    try { leafletLayer.setStyle({ fillOpacity: 0.25, fillColor: '#b8860b', weight: 2.5, color: '#b8860b' }); leafletLayer.bringToFront(); } catch(e) {}
   }
   showParcelDetail(feature);
   highlightTableRow(feature.properties?.OBJECTID || apn);
@@ -1031,7 +1047,10 @@ function renderDeveloperReport(r) {
   const alerts = [];
   if (r.coastalAnalysis.inCoastalZone) alerts.push({ type: 'coastal', icon: '🌊', text: 'Coastal Zone — CDP required for most development' });
   if (r.fireAnalysis.inHighFireZone)   alerts.push({ type: 'fire',    icon: '🔥', text: 'High Fire Hazard Zone — Chapter 7A construction required' });
-  if (r.historicAnalysis.isHistoric)   alerts.push({ type: 'historic',icon: '🏛', text: 'Historic designation — SB 9 lot split blocked' });
+  // Only show SB 9 historic alert in SF zones where SB 9 would otherwise apply
+  // (non-SF zones return reason containing 'single-family' — skip alert there)
+  const _sb9NonSF = r.sb9Analysis?.reason?.includes('single-family');
+  if (r.historicAnalysis.isHistoric && !_sb9NonSF) alerts.push({ type: 'historic',icon: '🏛', text: 'Historic designation — SB 9 lot split blocked' });
   if (r.floodAnalysis.inFloodZone)     alerts.push({ type: 'flood',   icon: '💧', text: 'FEMA Flood Zone — elevation certificate required' });
   alertsEl.innerHTML = alerts.map(a =>
     '<div class="report-alert report-alert-' + a.type + '">' + a.icon + ' ' + a.text + '</div>'
@@ -1053,16 +1072,16 @@ function renderDeveloperReport(r) {
   const unitGrid = document.getElementById('reportUnitGrid');
   const mu = r.maxUnits;
   const lawColors = {
-    'Local Zoning': '#1a5f7a', // teal — base zoning (formerly "By-Right")
-    'ADU':          '#2e7041', // green — ADU/JADU stack
-    'SB 9':         '#8a5a0c', // amber — SB 9
-    'SHRA':         '#6b21a8', // purple — Starter Home Revitalization Act
-    'DBL':          '#0e6ba8', // blue — Density Bonus Law
-    'AR':           '#0f766e', // teal — Adaptive Reuse
-    'AB2011':       '#b45309', // amber — AB 2011
-    'SB35':         '#6b7280', // grey — SB 35 (not applicable)
-    'AB 2011':      '#a83246', // red — Affordable Housing & High Road Jobs Act
-    'default':      '#4b5563',
+    'Local Zoning': '#b8860b',
+    'ADU':          '#b8860b',
+    'SB 9':         '#b8860b',
+    'SHRA':         '#b8860b',
+    'DBL':          '#b8860b',
+    'AR':           '#b8860b',
+    'AB2011':       '#b8860b',
+    'SB35':         '#b8860b',
+    'AB 2011':      '#b8860b',
+    'default':      '#b8860b',
   };
   function shortLawLabel(fullLaw) {
     if (/SB ?9/i.test(fullLaw)) return 'SB 9';
@@ -1119,7 +1138,7 @@ function renderDeveloperReport(r) {
     } else if (shortLabel === 'AR') {
       cards.push(
         '<div class="unit-card" style="border-top-color:' + color + '">' +
-        '<div class="unit-card-num" style="color:' + color + '; font-size:1.4rem">🏢</div>' +
+        '<div class="unit-card-num" style="color:#b8860b; font-size:1.1rem; font-weight:800; letter-spacing:-0.5px">AR</div>' +
         '<div class="unit-card-label">ADAPTIVE REUSE</div>' +
         '<div class="unit-card-sub">Eligible — see report</div>' +
         '</div>'
@@ -1193,21 +1212,42 @@ function renderDeveloperReport(r) {
   }
 
   // ── State Law Cards ───────────────────────────────────────
+  // Extract unit counts from breakdown for law card badges
+  var _bd = (r.maxUnits && r.maxUnits.breakdown) || [];
+  function _lawUnits(key) {
+    var bd = _bd.find(function(b) {
+      var l = (b.law || '').toLowerCase();
+      if (key === 'sb9')    return l.includes('sb 9') || l.includes('sb9');
+      if (key === 'adu')    return l.includes('adu') || l.includes('jadu');
+      if (key === 'shra')   return l.includes('shra') || l.includes('684') || l.includes('1123');
+      if (key === 'dbl')    return l.includes('density') || l.includes('dbl');
+      if (key === 'ar')     return l.includes('adaptive') || l === 'ar';
+      if (key === 'ab2011') return l.includes('2011');
+      return false;
+    });
+    return bd ? bd.units : null;
+  }
+  var _base = (r.maxUnits && (r.maxUnits.byRight != null)) ? r.maxUnits.byRight : null;
+  function _aduTotal() {
+    var u = _lawUnits('adu');
+    return (u != null && _base != null) ? (_base + u) : u;
+  }
+
   document.getElementById('reportLawCards').innerHTML = [
-    makeLawCard('SB 9', 'Urban Lot Split & 2-Unit Duplex', r.sb9Analysis, 'sb9'),
-    makeLawCard('ADU Law', 'Accessory Dwelling Units', r.aduAnalysis, 'adu'),
-    makeLawCard('SB 684 / SB 1123', 'Starter Home Revitalization Act', r.shraAnalysis, 'shra'),
-    (r.dblAnalysis    && r.dblAnalysis.eligible    ? makeLawCard('Density Bonus Law',  'Gov. Code § 65915',       r.dblAnalysis,    'dbl')    : ''),
-    (r.arAnalysis     && r.arAnalysis.eligible     ? makeLawCard('Adaptive Reuse',      'SBMC § 30.185.045',       r.arAnalysis,     'ar')     : ''),
-    (r.ab2011Analysis                              ? makeLawCard('AB 2011',             'High Road Jobs Act',      r.ab2011Analysis, 'ab2011') : ''),
-    makeLawCard('SB 35 / SB 423', 'Streamlined Ministerial Approval', r.sb35Analysis, 'sb35'),
+    makeLawCard('SB 9', 'Urban Lot Split & 2-Unit Duplex', r.sb9Analysis, 'sb9', _lawUnits('sb9')),
+    makeLawCard('ADU Law', 'Accessory Dwelling Units', r.aduAnalysis, 'adu', _aduTotal()),
+    makeLawCard('SB 684 / SB 1123', 'Starter Home Revitalization Act', r.shraAnalysis, 'shra', _lawUnits('shra')),
+    (r.dblAnalysis    && r.dblAnalysis.eligible    ? makeLawCard('Density Bonus Law',  'Gov. Code § 65915',       r.dblAnalysis,    'dbl',    _lawUnits('dbl'))    : ''),
+    (r.arAnalysis     && r.arAnalysis.eligible     ? makeLawCard('Adaptive Reuse',      'SBMC § 30.185.045',       r.arAnalysis,     'ar',     null)               : ''),
+    (r.ab2011Analysis                              ? makeLawCard('AB 2011',             'High Road Jobs Act',      r.ab2011Analysis, 'ab2011', _lawUnits('ab2011')) : ''),
+    makeLawCard('SB 35 / SB 423', 'Streamlined Ministerial Approval', r.sb35Analysis, 'sb35', null),
   ].join('');
 
   // ── Parking AB 2097 ───────────────────────────────────────
   const pk = r.parkingAnalysis;
   const pkGrid = document.getElementById('reportParkingGrid');
   pkGrid.innerHTML = pk.eligible ? [
-    makeRow('AB 2097 Applies', '<span style="color:var(--color-success);font-weight:700">✔ Yes</span>'),
+    makeRow('AB 2097 Applies', '<span style="color:#b8860b;font-weight:700">✔ Yes</span>'),
     makeRow('Rule', escHtml(pk.rule || '')),
     makeRow('Scope', escHtml(pk.scope || '')),
     makeRow('Practical Impact', escHtml(pk.practicalImpact || '')),
@@ -1431,12 +1471,24 @@ function unitCard(label, count, color, sub, prefix) {
     '</div>';
 }
 
-function makeLawCard(law, subtitle, analysis, type) {
+// Law card colors matching the unit grid
+var LAW_CARD_COLORS = {
+  'sb9':    '#b8860b',
+  'adu':    '#b8860b',
+  'shra':   '#b8860b',
+  'dbl':    '#b8860b',
+  'ar':     '#b8860b',
+  'ab2011': '#b8860b',
+  'sb35':   '#b8860b',
+};
+
+function makeLawCard(law, subtitle, analysis, type, unitCount) {
+  var lawCardColor = LAW_CARD_COLORS[type] || '#4b5563';
   var isEligible = type === 'shra'
     ? (analysis && (analysis.sb684Eligible || analysis.sb1123Eligible || analysis.isAudCommercial))
     : (analysis && analysis.eligible !== false);
 
-  var statusColor = isEligible ? 'var(--color-success)' : 'var(--color-text-muted)';
+  var statusColor = isEligible ? '#b8860b' : '#e74c3c';
   var statusText  = (type === 'sb35')
     ? '— Not Applicable'
     : isEligible ? '✔ Eligible' : '✗ Not Eligible';
@@ -1583,9 +1635,17 @@ function makeLawCard(law, subtitle, analysis, type) {
       '<div class="law-note law-note-interpretive">' + escHtml(analysis.note || '') + '</div>';
   }
 
+  // Colored unit badge
+  var badgeColor = unitCount !== null && unitCount !== undefined ? lawCardColor : (isEligible ? lawCardColor : '#e74c3c');
+  var badgeContent = (unitCount !== null && unitCount !== undefined)
+    ? '<span class="law-unit-badge" style="background:' + badgeColor + '">' + unitCount + '</span>'
+    : isEligible
+      ? '<span class="law-unit-badge" style="background:' + badgeColor + '">✔</span>'
+      : '<span class="law-unit-badge" style="background:#e74c3c">✗</span>';
+
   return '<div class="law-card law-card-' + type + ' ' + (isEligible ? 'law-eligible' : 'law-ineligible') + '">' +
     '<div class="law-card-header">' +
-      '<div class="law-card-title">' + escHtml(law) + '</div>' +
+      '<div class="law-card-title-wrap">' + badgeContent + '<div class="law-card-title">' + escHtml(law) + '</div></div>' +
       '<span class="law-status" style="color:' + statusColor + '">' + statusText + '</span>' +
     '</div>' +
     '<div class="law-card-sub">' + escHtml(subtitle) + '</div>' +
@@ -2441,13 +2501,13 @@ window._appState = state;
 document.getElementById('closeDetail').addEventListener('click', () => {
   document.getElementById('detailPanel').style.display = 'none';
   if (state.selectedParcel) {
-    try { state.selectedParcel.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, weight: 1, color: '#1a5f7a' }); } catch(e) {}
+    try { state.selectedParcel.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, fillColor: '', weight: 1, color: '#1a5f7a' }); } catch(e) {}
     state.selectedParcel = null;
   }
   state.selectedAPN = null;
   state.compareAPNs.forEach(apn => {
     const l = state.compareLayers[apn];
-    if (l) try { l.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, weight: 1, color: '#1a5f7a' }); } catch(e) {}
+    if (l) try { l.setStyle({ fillOpacity: state.layerOpacity.parcels * 0.35, fillColor: '', weight: 1, color: '#1a5f7a' }); } catch(e) {}
   });
   state.compareAPNs = []; state.compareLayers = {}; state.compareMode = false;
   const mapEl = document.getElementById('map');
