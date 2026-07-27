@@ -454,11 +454,11 @@ input { font: inherit; color: inherit; }
   flex-shrink: 0;
   letter-spacing: 0.03em;
 }
-.layer-badge.city { background: var(--color-primary-light); color: var(--color-primary); }
-.layer-badge.fire { background: var(--color-accent-light); color: var(--color-accent); }
-.layer-badge.env  { background: var(--color-warning-light); color: var(--color-warning); }
-.layer-badge.plan { background: var(--color-success-light); color: var(--color-success); }
-.layer-badge.county { background: var(--color-surface-offset); color: var(--color-text-muted); }
+.layer-badge.city   { background: var(--color-primary-light); color: var(--color-primary); }
+.layer-badge.fire   { background: var(--color-primary-light); color: var(--color-primary); }
+.layer-badge.env    { background: var(--color-primary-light); color: var(--color-primary); }
+.layer-badge.plan   { background: var(--color-primary-light); color: var(--color-primary); }
+.layer-badge.county { background: var(--color-primary-light); color: var(--color-primary); }
 
 /* Basemap buttons */
 .basemap-options {
@@ -1305,7 +1305,7 @@ body.is-resizing-watchlist .watchlist-resize-handle {
   border-radius: var(--radius-sm);
   padding: 4px 8px;
   margin-top: 4px;
-  border-left: 2px solid #d97706;
+  border-left: 2px solid #b8860b;
 }
 .report-disclaimer-text {
   font-size: 10px;
@@ -1367,21 +1367,21 @@ body.is-resizing-watchlist .watchlist-resize-handle {
 }
 .law-warning {
   font-size: var(--text-xs);
-  color: #dc2626;
-  background: #ef444410;
+  color: #e74c3c;
+  background: #e74c3c10;
   border-radius: var(--radius-sm);
   padding: 4px 8px;
   margin-top: 4px;
-  border-left: 2px solid #ef4444;
+  border-left: 2px solid #e74c3c;
 }
-[data-theme="dark"] .law-warning { color: #fca5a5; }
+[data-theme="dark"] .law-warning { color: #e74c3c; }
 
 /* ── ADU pathway cards (Dev Report) ─────────────────────────── */
 .law-pathway {
   margin-top: 8px;
   padding: 8px 10px;
   background: var(--color-surface-2);
-  border-left: 3px solid var(--color-primary, #2563eb);
+  border-left: 3px solid #b8860b;
   border-radius: var(--radius-sm);
 }
 .law-pathway-head {
@@ -1468,9 +1468,9 @@ body.is-resizing-watchlist .watchlist-resize-handle {
   padding: 2px 8px;
   border-radius: 99px;
 }
-.restriction-ok   { background: #2e704120; color: #2e7041; }
+.restriction-ok   { background: #b8860b20; color: #b8860b; }
 .restriction-warn { background: #ef444415; color: #dc2626; }
-[data-theme="dark"] .restriction-ok   { color: #86efac; }
+[data-theme="dark"] .restriction-ok   { color: #b8860b; }
 [data-theme="dark"] .restriction-warn { color: #fca5a5; }
 .restriction-list {
   margin: 6px 10px;
@@ -1509,8 +1509,8 @@ body.is-resizing-watchlist .watchlist-resize-handle {
   border: 1px solid var(--color-border);
   padding: 8px 10px;
 }
-.permit-required { border-left: 3px solid #ef4444; }
-.permit-conditional { border-left: 3px solid #f59e0b; }
+.permit-required { border-left: 3px solid #b8860b; }
+.permit-conditional { border-left: 3px solid #b8860b; }
 .permit-name {
   font-size: var(--text-sm);
   font-weight: 700;
@@ -1610,19 +1610,19 @@ body.is-resizing-watchlist .watchlist-resize-handle {
 .reg-flag-body li { margin-bottom: 2px; }
 
 /* Color variants */
-.reg-flag-green .reg-flag-header  { background: #f0fdf4; color: #166534; }
-.reg-flag-green                    { border-color: #bbf7d0; }
-.reg-flag-orange .reg-flag-header  { background: #fff7ed; color: #9a3412; }
-.reg-flag-orange                   { border-color: #fed7aa; }
+.reg-flag-green .reg-flag-header  { background: #b8860b15; color: #b8860b; }
+.reg-flag-green                    { border-color: #b8860b40; }
+.reg-flag-orange .reg-flag-header  { background: #b8860b15; color: #b8860b; }
+.reg-flag-orange                   { border-color: #b8860b40; }
 .reg-flag-red .reg-flag-header     { background: #fef2f2; color: #991b1b; }
 .reg-flag-red                      { border-color: #fecaca; }
 .reg-flag-neutral .reg-flag-header { background: var(--color-surface-2); color: var(--color-text-muted); }
 .reg-flag-neutral                  { border-color: var(--color-border); }
 
-[data-theme="dark"] .reg-flag-green .reg-flag-header  { background: #14532d; color: #bbf7d0; }
-[data-theme="dark"] .reg-flag-green                    { border-color: #166534; }
-[data-theme="dark"] .reg-flag-orange .reg-flag-header  { background: #431407; color: #fed7aa; }
-[data-theme="dark"] .reg-flag-orange                   { border-color: #9a3412; }
+[data-theme="dark"] .reg-flag-green .reg-flag-header  { background: #b8860b20; color: #b8860b; }
+[data-theme="dark"] .reg-flag-green                    { border-color: #b8860b50; }
+[data-theme="dark"] .reg-flag-orange .reg-flag-header  { background: #b8860b20; color: #b8860b; }
+[data-theme="dark"] .reg-flag-orange                   { border-color: #b8860b50; }
 [data-theme="dark"] .reg-flag-red .reg-flag-header     { background: #450a0a; color: #fecaca; }
 [data-theme="dark"] .reg-flag-red                      { border-color: #991b1b; }
 [data-theme="dark"] .reg-flag-neutral .reg-flag-header { background: var(--color-surface-2); color: var(--color-text-muted); }
@@ -3299,3 +3299,87 @@ body.is-resizing-watchlist .watchlist-resize-handle {
 /* ── Outside-city parcels: not-allowed cursor ── */
 .outside-city-parcel { cursor: not-allowed !important; }
 
+/* ══════════════════════════════════════════════════
+   BRAND OVERRIDES — Arial font, red accents
+══════════════════════════════════════════════════ */
+
+/* 1. Arial everywhere */
+*, *::before, *::after {
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif !important;
+}
+
+/* 2. Law card eligible color → red */
+.law-status { color: #e74c3c !important; }
+.law-eligible { border-color: #b8860b80 !important; }
+
+/* 3. Contact BAP buttons → gold */
+.gate-btn--contact,
+a.gate-btn--contact {
+  background: #b8860b !important;
+}
+.gate-btn--contact:hover,
+a.gate-btn--contact:hover {
+  background: #9a720a !important;
+  opacity: 1 !important;
+}
+
+/* 4. PDF button → gold */
+.pdf-export-btn {
+  border-color: #b8860b !important;
+  color: #b8860b !important;
+}
+.pdf-export-btn svg { stroke: #b8860b !important; }
+.pdf-export-btn:hover {
+  background: #b8860b !important;
+  color: #fff !important;
+}
+.pdf-export-btn:hover svg { stroke: #fff !important; }
+
+/* ── Law card unit badge ──────────────────────────── */
+.law-card-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.law-unit-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff !important;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Law eligibility status colors */
+.law-eligible .law-status   { color: #b8860b !important; }
+.law-ineligible .law-status { color: #e74c3c !important; }
+
+/* ── Unify all law colors to gold #b8860b ─────────── */
+.ub-units { color: #b8860b !important; }
+.unit-card { border-top-color: #b8860b !important; }
+.unit-card-num { color: #b8860b !important; }
+.law-unit-badge { background: #b8860b !important; }
+
+/* Ineligible law badge = red, eligible = gold */
+.law-ineligible .law-unit-badge { background: #e74c3c !important; }
+.law-eligible .law-unit-badge   { background: #b8860b !important; }
+
+/* ── Zone tooltip ─────────────────────────────────── */
+.zone-tooltip {
+  background: var(--color-surface-2) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--color-text) !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  box-shadow: var(--shadow-md) !important;
+  pointer-events: none;
+}
+.zone-tooltip::before { display: none !important; }
