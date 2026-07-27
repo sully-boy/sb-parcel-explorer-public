@@ -251,7 +251,7 @@
             <!-- How many total units can I build? -->
             <div class="report-section">
               <div class="report-section-title report-section-title--lead">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b8860b" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 How Many Total Units Can I Build?
               </div>
               <div class="unit-count-grid" id="reportUnitGrid"></div>
@@ -275,7 +275,10 @@
                   <div class="gate-icon">📊</div>
                   <div class="gate-title">Pro Forma ROI Estimator</div>
                   <div class="gate-body">Contact BAP to run a full financial feasibility analysis for this parcel.</div>
-                  <a href="mailto:bap@sb-designgroup.com?subject=ROI%20Analysis%20Request" class="gate-btn gate-btn--contact">Contact BAP →</a>
+                  <form class="gate-form" id="gateRoiForm" onsubmit="return false">
+                    <input type="email" class="gate-input" id="gateRoiEmailInput" placeholder="your@email.com" required />
+                    <button type="submit" class="gate-btn gate-btn--contact" id="gateRoiSubmit">Contact BAP →</button>
+                  </form>
                 </div>
               </div>
               <!-- Pro Forma content — blurred behind the overlay -->
@@ -365,7 +368,7 @@
             <!-- Parking (AB 2097) -->
             <div class="report-section" id="reportParkingSection">
               <div class="report-section-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b8860b" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>
                 Parking (AB 2097)
               </div>
               <div class="detail-grid" id="reportParkingGrid"></div>
@@ -374,7 +377,7 @@
             <!-- Restrictions -->
             <div class="report-section">
               <div class="report-section-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                 Restrictions &amp; Overlays
               </div>
               <div class="restriction-cards" id="reportRestrictions"></div>
@@ -383,19 +386,10 @@
             <!-- Permits required -->
             <div class="report-section">
               <div class="report-section-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b8860b" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 Permits Required
               </div>
               <div class="permit-list" id="reportPermits"></div>
-            </div>
-
-            <!-- Score factors -->
-            <div class="report-section">
-              <div class="report-section-title">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                Score Factors
-              </div>
-              <div class="score-factors" id="reportScoreFactors"></div>
             </div>
 
             <!-- Regulatory Flags -->
@@ -756,87 +750,13 @@
     requestAnimationFrame(function() { setTimeout(syncHeaderHeight, 100); });
   })();
   </script>
-<script data-pplx-inline-edit>
-(function(){
-  if(window===window.top)return;
-  function inlineAll(orig,clone){
-    if(orig.nodeType!==1)return;
-    try{
-      var cs=getComputedStyle(orig);
-      var t='';
-      for(var i=0;i<cs.length;i++){t+=cs[i]+':'+cs.getPropertyValue(cs[i])+';';}
-      clone.style.cssText=t;
-    }catch(e){}
-    var oc=orig.children,cc=clone.children;
-    for(var j=0;j<oc.length&&j<cc.length;j++){inlineAll(oc[j],cc[j]);}
-  }
-  function stripExternal(clone){
-    var imgs=clone.querySelectorAll('img');
-    for(var i=0;i<imgs.length;i++){
-      var s=imgs[i].getAttribute('src');
-      if(s&&!s.startsWith('data:'))imgs[i].removeAttribute('src');
-    }
-    var all=clone.querySelectorAll('*');
-    for(var i=0;i<all.length;i++){
-      var st=all[i].style.cssText;
-      if(st&&st.indexOf('url(')>=0){
-        all[i].style.cssText=st.replace(/url\(["']?(?!data:)[^)"']*["']?\)/gi,'none');
-      }
-    }
-  }
-  var scrollRaf=0;
-  function emitScroll(){
-    scrollRaf=0;
-    var x=window.scrollX||window.pageXOffset||0;
-    var y=window.scrollY||window.pageYOffset||0;
-    window.parent.postMessage({type:'INLINE_EDIT_SCROLL',scrollX:x,scrollY:y},'*');
-  }
-  window.addEventListener('scroll',function(){
-    if(scrollRaf)return;
-    scrollRaf=requestAnimationFrame(emitScroll);
-  },{passive:true,capture:true});
-  emitScroll();
-  window.addEventListener('message',function(e){
-    if(!e.data||e.data.type!=='INLINE_EDIT_CAPTURE_REQUEST')return;
-    var scrollX=window.scrollX||window.pageXOffset||0;
-    var scrollY=window.scrollY||window.pageYOffset||0;
-    var w=window.innerWidth,h=window.innerHeight;
-    try{
-      var clone=document.documentElement.cloneNode(true);
-      var rm=clone.querySelectorAll('script,link[rel="stylesheet"],style');
-      for(var i=0;i<rm.length;i++){rm[i].remove();}
-      inlineAll(document.documentElement,clone);
-      stripExternal(clone);
-      var html=new XMLSerializer().serializeToString(clone);
-      var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
-        +'<foreignObject width="100%" height="100%">'
-        +'<div xmlns="http://www.w3.org/1999/xhtml" style="width:'+w+'px;height:'+h+'px;overflow:hidden">'
-        +'<div style="transform:translate(-'+scrollX+'px,-'+scrollY+'px);transform-origin:top left">'
-        +html+'</div></div></foreignObject></svg>';
-      var svgUrl='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-      var img=new Image();
-      img.onload=function(){
-        var c=document.createElement('canvas');c.width=w;c.height=h;
-        c.getContext('2d').drawImage(img,0,0);
-        window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:c.toDataURL('image/png'),scrollX:scrollX,scrollY:scrollY},'*');
-      };
-      img.onerror=function(){
-        window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:null,scrollX:scrollX,scrollY:scrollY},'*');
-      };
-      img.src=svgUrl;
-    }catch(err){
-      window.parent.postMessage({type:'INLINE_EDIT_SCREENSHOT_RESULT',dataUrl:null,scrollX:scrollX,scrollY:scrollY},'*');
-    }
-  });
-})();
-</script>
   <!-- PDF Gate Modal -->
   <div id="pdfGateModal" class="pdf-gate-modal-backdrop" style="display:none">
     <div class="pdf-gate-modal">
       <button class="pdf-gate-close" id="pdfGateClose">✕</button>
       <div class="gate-icon">📄</div>
       <div class="gate-title">Full Development Potential Analysis</div>
-      <div class="gate-body">Contact BAP to receive a full analysis of what’s possible on your property!</div>
+      <div class="gate-body">Contact BAP to receive a full analysis of what's possible on your property!</div>
       <a href="mailto:bap@sb-designgroup.com?subject=Development%20Potential%20Analysis%20Request" class="gate-btn gate-btn--contact" style="margin-top:8px">Contact BAP →</a>
     </div>
   </div>
