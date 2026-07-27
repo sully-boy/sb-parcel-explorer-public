@@ -14,6 +14,11 @@
   var STORAGE_KEY     = 'bap_public_unlocked';
   var EMAIL_KEY       = 'bap_public_email';
 
+  // Cloudflare Worker proxy URL — forwards email captures to Mailchimp.
+  // The Worker holds the Mailchimp API key server-side (never expose it here).
+  // Fill in after deploying /mailchimp-worker.js — see that file's header comment.
+  var MAILCHIMP_PROXY_URL = 'bap-mailchimp-proxy.sully-3ad.workers.dev';
+
   var isUnlocked  = false;
   var userEmail   = '';
   var currentAPN  = '';
@@ -38,7 +43,36 @@
         userEmail = email;
         submitEmail(email, currentAPN, 'state_law_unlock');
         notifyBAP(email, currentAPN, 'State Law unlock');
+        submitToMailchimp(email, currentAPN, 'state_law_unlock');
         unlock(true);
+      });
+    }
+
+    // Wire Pro Forma ROI "Contact BAP" email-capture form
+    // (Section stays permanently gated — this just captures the lead,
+    //  then opens the visitor's mail client same as before.)
+    var roiForm = document.getElementById('gateRoiForm');
+    if (roiForm) {
+      roiForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var input = document.getElementById('gateRoiEmailInput');
+        var email = (input ? input.value : '').trim();
+        if (!email || !email.includes('@')) return;
+
+        submitEmail(email, currentAPN, 'roi_contact');
+        notifyBAP(email, currentAPN, 'Pro Forma ROI contact');
+        submitToMailchimp(email, currentAPN, 'roi_contact');
+
+        // Swap the form for a short confirmation message
+        var thanksMsg = document.createElement('div');
+        thanksMsg.className = 'gate-fine';
+        thanksMsg.style.marginTop = '10px';
+        thanksMsg.textContent = 'Thanks! Opening your email client…';
+        roiForm.replaceWith(thanksMsg);
+
+        // Still open the mail client so the visitor can send a direct note
+        var subject = encodeURIComponent('ROI Analysis Request — APN ' + (currentAPN || ''));
+        window.location.href = 'mailto:bap@sb-designgroup.com?subject=' + subject;
       });
     }
 
@@ -128,6 +162,26 @@
       + '&timestamp=' + encodeURIComponent(new Date().toISOString());
     fetch(url, { method: 'GET', mode: 'no-cors' }).catch(function (e) {
       console.warn('[BAPGate] submit failed:', e);
+    });
+  }
+
+  // ── Submit email to Mailchimp (via Cloudflare Worker proxy) ──
+  // The Worker holds the Mailchimp API key; this just POSTs the lead.
+  function submitToMailchimp(email, apn, source) {
+    if (!MAILCHIMP_PROXY_URL || MAILCHIMP_PROXY_URL === 'YOUR_CLOUDFLARE_WORKER_URL_HERE') {
+      console.warn('[BAPGate] Mailchimp proxy URL not set.');
+      return;
+    }
+    fetch(MAILCHIMP_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email:  email,
+        apn:    apn || '',
+        source: source || 'unlock',
+      }),
+    }).catch(function (e) {
+      console.warn('[BAPGate] Mailchimp submit failed:', e);
     });
   }
 
