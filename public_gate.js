@@ -17,7 +17,7 @@
   // Cloudflare Worker proxy URL — forwards email captures to Mailchimp.
   // The Worker holds the Mailchimp API key server-side (never expose it here).
   // Fill in after deploying /mailchimp-worker.js — see that file's header comment.
-  var MAILCHIMP_PROXY_URL = 'bap-mailchimp-proxy.sully-3ad.workers.dev';
+  var MAILCHIMP_PROXY_URL = 'var MAILCHIMP_PROXY_URL = 'https://bap-mailchimp-proxy.sully-3ad.workers.dev';';
 
   var isUnlocked  = false;
   var userEmail   = '';
