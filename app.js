@@ -55,30 +55,30 @@ function ringsToLatLng(rings) {
 
 // ── Basemap tile layers ──────────────────────────────────────
 const BASEMAPS = {
-  osm: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 20
+  osm: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), © OpenStreetMap contributors, and the GIS User Community',
+    maxZoom: 19
   }),
   satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: '© Esri, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, swisstopo, and the GIS User Community',
-    maxZoom: 20
+    maxZoom: 20,
+    maxNativeZoom: 19
   }),
   topo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
     attribution: '© Esri, HERE, Garmin, Intermap, © OpenStreetMap contributors, USGS, NGA, EPA, USDA, NPS',
-    maxZoom: 20
+    maxZoom: 20,
+    maxNativeZoom: 19
   }),
-  light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 20
+  light: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri, HERE, Garmin, © OpenStreetMap contributors',
+    maxZoom: 16
   }),
 };
 
 // ── Application state ────────────────────────────────────────
 const state = {
   map: null,
-  currentBasemap: 'osm',
+  currentBasemap: 'topo',
   activeFeatureLayers: {},   // layerKey -> L.GeoJSON layer
   selectedParcel: null,
   selectedAPN: null,
@@ -303,7 +303,7 @@ function initMap() {
     preferCanvas: true,  // DO NOT REMOVE — required for GIS server CORS compatibility
   });
 
-  BASEMAPS.osm.addTo(map);
+  BASEMAPS.topo.addTo(map);
   state.map = map;
 
   // Custom zoom controls
