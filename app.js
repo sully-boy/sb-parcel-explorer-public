@@ -890,6 +890,12 @@ async function loadAdjacentData(parcelFeature) {
   const zoningAttrs  = zoningRes.status === 'fulfilled' ? zoningRes.value?.features?.[0]?.attributes : null;
   const chipAttrs    = chipsRes.status === 'fulfilled'  ? chipsRes.value?.features?.[0]?.attributes  : null;
   const isHighFire   = hfRes.status === 'fulfilled'     ? (hfRes.value?.features?.length > 0)         : false;
+  // CWPP High Fire Hazard sub-zone (layer 37's zone2025 field): 'Coastal' |
+  // 'Coastal Interior' | 'Foothill Zone' | 'Extreme Foothill Zone'. Only
+  // Foothill/Extreme Foothill trigger SB 1211's Standard ADU exclusion and
+  // SHRA's § 65852.28 exclusion — Coastal/Coastal Interior do not. See
+  // analyzer.js's analyzeADU() and analyzeSHRA().
+  const cwppFireZone = isHighFire ? (hfRes.value?.features?.[0]?.attributes?.zone2025 || null) : null;
   const floodAttrs   = ffRes.status === 'fulfilled'     ? ffRes.value?.features?.[0]?.attributes      : null;
   const isCoastal    = coastRes.status === 'fulfilled'  ? (coastRes.value?.features?.length > 0)      : false;
   const isHistoric   = histRes.status === 'fulfilled'   ? (histRes.value?.features?.length > 0)       : false;
@@ -927,6 +933,7 @@ async function loadAdjacentData(parcelFeature) {
   const context = {
     inCoastalZone:        isCoastal,
     inHighFire:           isHighFire,
+    cwppFireZone:         cwppFireZone, // 'Coastal' | 'Coastal Interior' | 'Foothill Zone' | 'Extreme Foothill Zone' | null
     chipZone:             chipAttrs?.haz_zone || null,
     inFEMAFlood:          !!floodAttrs,
     floodZoneType:        floodAttrs?.fldZone || floodAttrs?.zoneSubty || null,

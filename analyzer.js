@@ -168,6 +168,7 @@ function analyzeParcel(parcelAttrs, zoningAttrs, context) {
   const isIndustrial = isZone(zonePrimary, 'INDUSTRIAL');
   const isCoastal = ctx.inCoastalZone || false;
   const isHighFire = ctx.inHighFire || false;
+  const cwppFireZone = ctx.cwppFireZone || null;
   const isFlood = ctx.inFEMAFlood || false;
   const isHistoric = ctx.inHistoric || false;
   const nearTransit = ctx.nearTransit || false;
@@ -183,12 +184,12 @@ function analyzeParcel(parcelAttrs, zoningAttrs, context) {
 
   // ── 1. Base Zoning Rights ─────────────────────────────────
   const baseRights = getBaseZoningRights(zonePrimary, lotSqft, acreage, p, isSF, isMF, isComm);
-  const aduAnalysis = analyzeADU(zonePrimary, lotSqft, isSF, isMF, isCoastal, isHighFire, nearTransit, p, existingUnits, audTier);
+  const aduAnalysis = analyzeADU(zonePrimary, lotSqft, isSF, isMF, isCoastal, isHighFire, nearTransit, p, existingUnits, audTier, cwppFireZone);
   const sb9Analysis = analyzeSB9(zonePrimary, lotSqft, isSF, isCoastal, isHighFire, isHistoric, isFlood, p, ctx);
-  const shraAnalysis = analyzeSHRA(zonePrimary, lotSqft, isSF, isMF, isCoastal, isHighFire, isHistoric, isFlood, acreage, p, audTier);
+  const shraAnalysis = analyzeSHRA(zonePrimary, lotSqft, isSF, isMF, isCoastal, isHighFire, isHistoric, isFlood, acreage, p, audTier, cwppFireZone);
   const parkingAnalysis = analyzeAB2097(nearTransit, inTPA, zonePrimary);
   const coastalAnalysis = analyzeCoastal(isCoastal, ctx, zonePrimary);
-  const fireAnalysis = analyzeFire(isHighFire, chipZone, zonePrimary);
+  const fireAnalysis = analyzeFire(isHighFire, chipZone, zonePrimary, cwppFireZone);
   const floodAnalysis = analyzeFlood(isFlood, ctx);
   const historicAnalysis = analyzeHistoric(isHistoric, p);
   const buildableCalc = calcBuildableArea(zonePrimary, lotSqft, acreage, p);
@@ -510,7 +511,7 @@ function getBaseZoningRights(zone, lotSqft, acreage, p, isSF, isMF, isComm) {
 }
 
 // ── ADU Analysis ──────────────────────────────────────────────
-function analyzeADU(zone, lotSqft, isSF, isMF, isCoastal, isHighFire, nearTransit, p, existingUnits, audTier) {
+function analyzeADU(zone, lotSqft, isSF, isMF, isCoastal, isHighFire, nearTransit, p, existingUnits, audTier, cwppFireZone) {
   // State ADU law (§§ 66310-66342) applies to any zone that allows residential use,
   // including mixed-use and commercial zones where residential is allowed (e.g. via AUD).
   // Per § 66314(a), local agencies must allow ADUs in any zone where SF or MF residential
@@ -534,13 +535,25 @@ function analyzeADU(zone, lotSqft, isSF, isMF, isCoastal, isHighFire, nearTransi
   const useSfStack = primaryUnits <= 1;
   const useMfStack = primaryUnits >= 2;
 
+  // ── CWPP High Fire Hazard sub-zone (layer 37, field zone2025) ──────────────
+  // Only "Foothill Zone" and "Extreme Foothill Zone" trigger SB 1211's Standard
+  // ADU (§ 66314) exclusion — "Coastal" and "Coastal Interior" high-fire zones
+  // still get the full pathway set (2 detached-capable ADUs), just built to
+  // Chapter 7A ignition-resistant construction standards. If isHighFire is true
+  // but the specific CWPP zone couldn't be determined, fail conservative and
+  // treat it as restrictive rather than silently under-restricting.
+  const isCoastalFireZone = cwppFireZone === 'Coastal' || cwppFireZone === 'Coastal Interior';
+  const isRestrictiveFireZone = isHighFire && !isCoastalFireZone;
+
   // ── Site-condition notes (apply across pathways) ──────────────
   const notes = [];
   if (isCoastal) {
     notes.push('Coastal Zone: ADUs are processed under SBMC Title 28 (Ch. 28.86). A Coastal Development Permit may be required; one uncovered parking space typically required.');
   }
-  if (isHighFire) {
-    notes.push('Very High Fire Hazard Severity Zone: §66314 Standard ADU is prohibited in SBMC; §66323 ADUs/JADUs remain allowed and are subject to defensible-space and high-fire construction standards.');
+  if (isRestrictiveFireZone) {
+    notes.push('Foothill/Extreme Foothill Fire Zone (per City CWPP): §66314 Standard ADU is prohibited in SBMC; §66323 ADUs/JADUs remain allowed and are subject to defensible-space and high-fire construction standards.');
+  } else if (isHighFire && isCoastalFireZone) {
+    notes.push(`${cwppFireZone} Fire Zone (per City CWPP): Standard ADU remains allowed — this zone is not subject to the Foothill/Extreme Foothill exclusion — but all ADU construction must meet Chapter 7A ignition-resistant standards.`);
   }
 
   // ── Single-Family Pathways (Theoretical Max: 3 ADUs + 1 JADU) ──
@@ -550,8 +563,8 @@ function analyzeADU(zone, lotSqft, isSF, isMF, isCoastal, isHighFire, nearTransi
   if (useSfStack) {
     const pathways = [];
 
-    // §66314 Standard ADU — subject to local SBMC standards; prohibited in VHFHSZ
-    if (!isHighFire) {
+    // §66314 Standard ADU — subject to local SBMC standards; prohibited in Foothill/Extreme Foothill fire zones
+    if (!isRestrictiveFireZone) {
       pathways.push({
         key: 'standard',
         label: 'Standard ADU',
@@ -609,8 +622,8 @@ function analyzeADU(zone, lotSqft, isSF, isMF, isCoastal, isHighFire, nearTransi
     return {
       eligible: true,
       parcelType: 'single-family',
-      headline: isHighFire
-        ? 'Up to 2 ADUs + 1 JADU (VHFHSZ — Standard ADU not permitted)'
+      headline: isRestrictiveFireZone
+        ? 'Up to 2 ADUs + 1 JADU (Foothill/Extreme Foothill Fire Zone — Standard ADU not permitted)'
         : 'Up to 3 ADUs + 1 JADU',
       theoreticalMaxNewUnits: totalNewUnits,
       pathways,
@@ -817,14 +830,16 @@ function analyzeSB9(zone, lotSqft, isSF, isCoastal, isHighFire, isHistoric, isFl
 }
 
 // ── SB 684 / SB 1123 (Starter Home Revitalization Act) ────────
-function analyzeSHRA(zone, lotSqft, isSF, isMF, isCoastal, isHighFire, isHistoric, isFlood, acreage, p, audTier) {
+function analyzeSHRA(zone, lotSqft, isSF, isMF, isCoastal, isHighFire, isHistoric, isFlood, acreage, p, audTier, cwppFireZone) {
   const acresNum = acreage || (lotSqft / 43560);
 
   // Hard statutory exclusions per § 65852.28 — no mitigation exception (stricter than SB 9/SB 35)
-  if (isHighFire) {
+  const isCoastalFireZone = cwppFireZone === 'Coastal' || cwppFireZone === 'Coastal Interior';
+  const isRestrictiveFireZone = isHighFire && !isCoastalFireZone;
+  if (isRestrictiveFireZone) {
     return {
       sb684Eligible: false, sb1123Eligible: false, isAudCommercial: false, eligible: false,
-      reason: 'High/Very High Fire Hazard Severity Zone — SHRA is prohibited on this parcel. § 65852.28 lists HFHSZ as a hard disqualifier with no mitigation exception.',
+      reason: 'Foothill/Extreme Foothill Fire Zone (per City CWPP) — SHRA is prohibited on this parcel. § 65852.28 lists high/very high fire hazard severity zones as a hard disqualifier with no mitigation exception.',
       citation: 'Gov. Code § 65852.28 (SB 684 / SB 1123)',
     };
   }
@@ -842,6 +857,9 @@ function analyzeSHRA(zone, lotSqft, isSF, isMF, isCoastal, isHighFire, isHistori
 
   const overlayNotes = [];
   if (isHistoric) overlayNotes.push('Historic designation on parcel — SHRA does not have an explicit historic exclusion, but historic resource impacts will require resolution during project review.');
+  if (isHighFire && isCoastalFireZone) {
+    overlayNotes.push(`${cwppFireZone} Fire Zone (per City CWPP): this zone is not subject to the Foothill/Extreme Foothill exclusion in § 65852.28 — SHRA remains available, but all construction must meet Chapter 7A ignition-resistant standards.`);
+  }
 
   if (!sb684Eligible && !sb1123Eligible && !isAudCommercial) {
     return {
@@ -974,7 +992,7 @@ function analyzeCoastal(isCoastal, ctx, zone) {
 }
 
 // ── Fire Analysis ─────────────────────────────────────────────
-function analyzeFire(isHighFire, chipZone, zone) {
+function analyzeFire(isHighFire, chipZone, zone, cwppFireZone) {
   const result = {
     inHighFireZone: isHighFire,
     chipZone: chipZone || 'Not in an Assessment Chip Area',
@@ -993,9 +1011,12 @@ function analyzeFire(isHighFire, chipZone, zone) {
   }
 
   if (isHighFire) {
+    const isCoastalFireZone = cwppFireZone === 'Coastal' || cwppFireZone === 'Coastal Interior';
     result.restrictions = [
       'SB 9 lot split allowed only if development meets fire mitigation standards',
-      'SHRA (SB 684/SB 1123) excluded in High/Very High Fire Hazard Severity Zones',
+      isCoastalFireZone
+        ? `SHRA (SB 684/SB 1123) remains available in this ${cwppFireZone} CWPP zone (not subject to the Foothill/Extreme Foothill exclusion) — Chapter 7A construction required`
+        : 'SHRA (SB 684/SB 1123) excluded in Foothill/Extreme Foothill Fire Hazard Zones (per City CWPP)',
       'Fire-resistant construction materials required (Title 24, Chapter 7A)',
     ];
     result.requirements = [
