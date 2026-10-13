@@ -445,10 +445,32 @@ function addOutsideCityMask(cityGeoJSON) {
 async function loadCityLimits() {
   try {
     setStatus('Loading City Limits…', 'loading');
-    const data = await queryLayer(CONFIG.LAYERS.cityLimits, {
-      where: '1=1',
-      returnGeometry: 'true',
-    });
+    // Page through ALL City Limits features (the default query is capped at
+    // MAX_RESULTS records; a truncated result drops land polygons and the
+    // outside-city mask then darkens the whole city). Falls back to the
+    // original single request if the server rejects paging.
+    let allFeatures = [];
+    try {
+      let offset = 0;
+      for (let page = 0; page < 20; page++) {
+        const chunk = await queryLayer(CONFIG.LAYERS.cityLimits, {
+          where: '1=1',
+          returnGeometry: 'true',
+          resultOffset: offset,
+          resultRecordCount: 1000,
+        });
+        const feats = chunk.features || [];
+        allFeatures = allFeatures.concat(feats);
+        if (!chunk.exceededTransferLimit || !feats.length) break;
+        offset += feats.length;
+      }
+    } catch (pagingErr) {
+      console.warn('City Limits paging failed, using single request:', pagingErr);
+      const single = await queryLayer(CONFIG.LAYERS.cityLimits, { where: '1=1', returnGeometry: 'true' });
+      allFeatures = single.features || [];
+    }
+    console.log('[City Limits] features loaded:', allFeatures.length);
+    const data = { features: allFeatures };
     if (!data.features?.length) return;
     const geojson = featuresToGeoJSON(data.features);
     // Store for click-blocking in public version
