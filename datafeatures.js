@@ -154,12 +154,16 @@ function fetchPermitHistory(apn, cx, cy) {
     var seen = {};
     var permits = [];
 
-    function parseFeature(f) {
+    function parseFeature(f, fromApnQuery) {
       var a = f.attributes || {};
       var id = a.OBJECTID || a.objectid || a.GlobalID || a.globalid || JSON.stringify(a).slice(0, 40);
       if (seen[id]) return;
       seen[id] = true;
+      var apnVal = String(a.APN || a.apn || '').replace(/[^0-9A-Za-z]/g, '');
+      var onParcel = !!fromApnQuery || (apnVal && apnClean && apnVal === apnClean.replace(/[^0-9A-Za-z]/g, ''));
       permits.push({
+        onParcel:    onParcel,
+        openTs:      Number(a.RECORD_OPEN_DATE || a.Open_Date || a.OpenDate) || 0,
         recordId:    a.dbo_V_RECORD_RECORD_ID || a.Record_ID  || a.RecordID   || '—',
         recordName:  a.RECORD_NAME  || a.Record_Name || a.RecordName  || '—',
         description: a.DESCRIPTION  || a.Description || a.description || '—',
@@ -178,10 +182,11 @@ function fetchPermitHistory(apn, cx, cy) {
     var r1 = (results[0] && results[0].features) ? results[0].features : [];
     var r2 = (results[1] && results[1].features) ? results[1].features : [];
     var i;
-    for (i = 0; i < r1.length; i++) parseFeature(r1[i]);
-    for (i = 0; i < r2.length; i++) parseFeature(r2[i]);
+    for (i = 0; i < r1.length; i++) parseFeature(r1[i], true);
+    for (i = 0; i < r2.length; i++) parseFeature(r2[i], false);
 
-    // Sort newest first (by openDate field raw epoch if available — fallback alphabetical)
+    // Newest first
+    permits.sort(function (a, b) { return b.openTs - a.openTs; });
     return permits;
   }).catch(function (err) {
     console.warn('[DataFeatures] fetchPermitHistory failed:', err);
@@ -193,59 +198,70 @@ function fetchPermitHistory(apn, cx, cy) {
  * renderPermitHistory(permits)
  * Returns HTML string showing permit cards.
  */
-function renderPermitHistory(permits) {
-  var html = '<div class="df-section">';
-  html += '<div class="df-section-label">Permit History</div>';
+function renderPermitCard(p) {
+  var sg = (p.statusGroup || p.status || '').toLowerCase();
+  var badgeClass = 'df-badge-orange';
+  if (sg.indexOf('complete') !== -1 || sg.indexOf('final') !== -1 || (sg.indexOf('issued') !== -1 && sg.indexOf('c of o') !== -1)) {
+    badgeClass = 'df-badge-green';
+  } else if (sg.indexOf('issued') !== -1 || sg.indexOf('approved') !== -1) {
+    badgeClass = 'df-badge-blue';
+  } else if (sg.indexOf('void') !== -1 || sg.indexOf('cancel') !== -1 || sg.indexOf('expired') !== -1) {
+    badgeClass = 'df-badge-gray';
+  }
+  var statusText = p.statusGroup !== '—' ? p.statusGroup : p.status;
 
-  if (!permits || permits.length === 0) {
-    html += '<div class="df-empty-note">No permit records found on this parcel via City GIS.</div>';
-  } else {
-    html += '<div class="df-permit-list">';
-    for (var i = 0; i < permits.length; i++) {
-      var p = permits[i];
+  var h = '<div class="df-permit-card">';
+  h += '<div class="df-permit-header">';
+  h += '<span class="df-permit-name">' + escHtml(p.recordName !== '—' ? p.recordName : p.recordId) + '</span>';
+  if (statusText && statusText !== '—') h += '<span class="df-badge ' + badgeClass + '">' + escHtml(statusText) + '</span>';
+  h += '</div>';
 
-      // Status badge color
-      var sg = (p.statusGroup || p.status || '').toLowerCase();
-      var badgeClass = 'df-badge-orange';
-      if (sg.indexOf('complete') !== -1 || sg.indexOf('final') !== -1 || sg.indexOf('issued') !== -1 && sg.indexOf('c of o') !== -1) {
-        badgeClass = 'df-badge-green';
-      } else if (sg.indexOf('issued') !== -1 || sg.indexOf('approved') !== -1) {
-        badgeClass = 'df-badge-blue';
-      } else if (sg.indexOf('void') !== -1 || sg.indexOf('cancel') !== -1 || sg.indexOf('expired') !== -1) {
-        badgeClass = 'df-badge-gray';
-      }
+  if (p.address && p.address !== '—') h += '<div class="df-permit-addr">' + escHtml(p.address) + '</div>';
 
-      html += '<div class="df-permit-card">';
-      html += '<div class="df-permit-header">';
-      html += '<span class="df-permit-name">' + escHtml(p.recordName !== '—' ? p.recordName : p.recordId) + '</span>';
-      html += '<span class="df-badge ' + badgeClass + '">' + escHtml(p.statusGroup !== '—' ? p.statusGroup : p.status) + '</span>';
-      html += '</div>';
+  var chips = [];
+  if (p.type && p.type !== '—') chips.push('<span class="df-permit-chip">' + escHtml(p.type) + '</span>');
+  if (p.aduUnits && p.aduUnits !== '—' && p.aduUnits !== 0) chips.push('<span class="df-permit-chip">ADU units: <strong>' + escHtml(String(p.aduUnits)) + '</strong></span>');
+  if (chips.length) h += '<div class="df-permit-chips">' + chips.join('') + '</div>';
 
-      if (p.address && p.address !== '—') {
-        html += '<div class="df-permit-addr">' + escHtml(p.address) + '</div>';
-      }
-      if (p.type && p.type !== '—') {
-        html += '<div class="df-permit-meta">Type: ' + escHtml(p.type) + '</div>';
-      }
-      if (p.description && p.description !== '—') {
-        html += '<div class="df-permit-desc">' + escHtml(p.description) + '</div>';
-      }
-
-      var dates = [];
-      if (p.openDate && p.openDate !== '—') dates.push('Opened: ' + p.openDate);
-      if (p.bpIssuedDate && p.bpIssuedDate !== '—') dates.push('BP Issued: ' + p.bpIssuedDate);
-      if (p.cofDate && p.cofDate !== '—') dates.push('C of O: ' + p.cofDate);
-      if (dates.length) {
-        html += '<div class="df-permit-dates">' + dates.join(' &nbsp;·&nbsp; ') + '</div>';
-      }
-
-      if (p.aduUnits && p.aduUnits !== '—' && p.aduUnits !== 0) {
-        html += '<div class="df-permit-adu">ADU Units: <strong>' + escHtml(String(p.aduUnits)) + '</strong></div>';
-      }
-
-      html += '</div>';
+  if (p.description && p.description !== '—') {
+    var d = String(p.description);
+    if (d.length > 180) {
+      h += '<details class="df-permit-more"><summary>' + escHtml(d.slice(0, 160).replace(/\s+\S*$/, '')) + '… <span class="df-permit-toggle">Read more</span></summary>' +
+           '<div class="df-permit-desc">' + escHtml(d) + '</div></details>';
+    } else {
+      h += '<div class="df-permit-desc">' + escHtml(d) + '</div>';
     }
-    html += '</div>';
+  }
+
+  var dates = [];
+  if (p.openDate && p.openDate !== '—') dates.push('<span><b>Opened</b> ' + p.openDate + '</span>');
+  if (p.bpIssuedDate && p.bpIssuedDate !== '—') dates.push('<span><b>BP issued</b> ' + p.bpIssuedDate + '</span>');
+  if (p.cofDate && p.cofDate !== '—') dates.push('<span><b>C of O</b> ' + p.cofDate + '</span>');
+  if (dates.length) h += '<div class="df-permit-dates">' + dates.join('') + '</div>';
+
+  h += '</div>';
+  return h;
+}
+
+function renderPermitHistory(permits) {
+  var list = permits || [];
+  var onParcel = list.filter(function (p) { return p.onParcel; });
+  var nearby   = list.filter(function (p) { return !p.onParcel; });
+
+  var html = '<div class="df-section">';
+  html += '<div class="df-section-label">Permit History <span class="df-section-sub">· this parcel</span></div>';
+
+  if (!onParcel.length) {
+    html += '<div class="df-empty-note">No ADU permit records found for this parcel in City GIS.</div>';
+  } else {
+    html += '<div class="df-permit-list">' + onParcel.map(renderPermitCard).join('') + '</div>';
+  }
+
+  if (nearby.length) {
+    html += '<details class="df-nearby">' +
+      '<summary>Nearby permits within 300 ft (' + nearby.length + ') <span class="df-section-sub">— other properties</span></summary>' +
+      '<div class="df-permit-list df-permit-list-nearby">' + nearby.map(renderPermitCard).join('') + '</div>' +
+      '</details>';
   }
 
   html += '<div class="df-link-row">' +
@@ -754,15 +770,26 @@ function injectDFStyles() {
     '.df-streetview-frame { border-radius: 8px; overflow: hidden; background: var(--color-surface-2, #f0f0f0); margin-bottom: 6px; }',
 
     /* ---- Permit cards ---- */
-    '.df-permit-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }',
-    '.df-permit-card { border: 1px solid var(--color-border, #e5e7eb); border-radius: 6px; padding: 8px 10px; font-size: 12px; }',
-    '.df-permit-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }',
-    '.df-permit-name { font-weight: 600; color: var(--color-text, #111); flex: 1; }',
-    '.df-permit-addr { color: var(--color-text-secondary, #555); margin-bottom: 2px; }',
-    '.df-permit-meta { color: var(--color-text-faint, #888); font-size: 11px; margin-bottom: 2px; }',
-    '.df-permit-desc { color: var(--color-text, #333); font-size: 11px; margin-bottom: 2px; }',
-    '.df-permit-dates { color: var(--color-text-faint, #888); font-size: 11px; margin-top: 3px; }',
-    '.df-permit-adu { font-size: 11px; color: var(--color-text, #333); margin-top: 3px; }',
+    '.df-permit-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }',
+    '.df-permit-card { background: var(--color-surface-offset, rgba(128,128,128,.08)); border: 1px solid var(--color-border, #e5e7eb); border-left: 3px solid #b8860b; border-radius: 6px; padding: 10px 12px; font-size: 13px; line-height: 1.45; }',
+    '.df-permit-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 4px; }',
+    '.df-permit-name { font-weight: 600; font-size: 13px; color: var(--color-text, #111); flex: 1; word-break: break-word; }',
+    '.df-permit-addr { color: var(--color-text-muted, #666); font-size: 12px; margin-bottom: 6px; }',
+    '.df-permit-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }',
+    '.df-permit-chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--color-border, #ddd); color: var(--color-text-muted, #666); }',
+    '.df-permit-chip strong { color: var(--color-text, #111); }',
+    '.df-permit-desc { color: var(--color-text, #333); font-size: 12px; line-height: 1.5; margin: 4px 0; }',
+    '.df-permit-more { margin: 4px 0; }',
+    '.df-permit-more > summary { cursor: pointer; list-style: none; color: var(--color-text-muted, #666); font-size: 12px; line-height: 1.5; }',
+    '.df-permit-more > summary::-webkit-details-marker { display: none; }',
+    '.df-permit-toggle { color: #b8860b; font-weight: 600; white-space: nowrap; }',
+    '.df-permit-more[open] > summary { display: none; }',
+    '.df-permit-dates { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-border, #e5e7eb); font-size: 11px; color: var(--color-text-muted, #666); }',
+    '.df-permit-dates b { font-weight: 600; color: var(--color-text, #222); margin-right: 3px; }',
+    '.df-nearby { margin: 4px 0 10px; border: 1px dashed var(--color-border, #ddd); border-radius: 6px; padding: 8px 10px; }',
+    '.df-nearby > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--color-text-muted, #666); }',
+    '.df-nearby[open] > summary { margin-bottom: 10px; }',
+    '.df-permit-list-nearby .df-permit-card { border-left-color: var(--color-border, #bbb); opacity: .92; }',
 
     /* ---- School chips ---- */
     '.df-school-chips { display: flex; flex-direction: column; gap: 8px; }',
@@ -829,6 +856,8 @@ function friendlyKey(key) {
 // ============================================================
 // EXPORT
 // ============================================================
+
+injectDFStyles();
 
 window.DataFeatures = {
   // Street View
