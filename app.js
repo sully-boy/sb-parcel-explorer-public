@@ -1311,7 +1311,8 @@ function renderDeveloperReport(r) {
   }).join('');
 
   // ── Score Factors ─────────────────────────────────────────
-  document.getElementById('reportScoreFactors').innerHTML = (r.score.factors || []).map(function(f) {
+  const _scoreFactorsEl = document.getElementById('reportScoreFactors');
+  if (_scoreFactorsEl) _scoreFactorsEl.innerHTML = ((r.score && r.score.factors) || []).map(function(f) {
     var isPos = f.impact && f.impact.startsWith('+');
     return '<div class="score-factor">' +
       '<span class="factor-label">' + escHtml(f.label) + '</span>' +
