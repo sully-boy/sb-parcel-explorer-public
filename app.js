@@ -883,6 +883,20 @@ async function loadAdjacentData(parcelFeature) {
     where: '1=1',
   };
 
+  // Parcel boundary reprojected to EPSG:2229 for polygon-intersect queries
+  let histParams = pointParams;
+  try {
+    const ring2229 = env.map(c => proj4('WGS84', 'EPSG:2229', [c[0], c[1]]));
+    histParams = {
+      geometry: JSON.stringify({ rings: [ring2229], spatialReference: { wkid: 2229 } }),
+      geometryType: 'esriGeometryPolygon',
+      spatialRel: 'esriSpatialRelIntersects',
+      where: '1=1',
+      returnGeometry: 'false',
+      outFields: 'OBJECTID',
+    };
+  } catch (e) { /* keep point params */ }
+
   // ── Show report loading state ──────────────────────────────
   document.getElementById('reportLoading').style.display = 'flex';
   document.getElementById('reportBody').style.display = 'none';
@@ -901,7 +915,9 @@ async function loadAdjacentData(parcelFeature) {
     queryLayer(CONFIG.LAYERS.highFire, pointParams),
     queryLayer(CONFIG.LAYERS.femaFlood, { ...pointParams, where: sfhaFilter }).catch(() => ({ features: [] })),
     queryLayer(CONFIG.LAYERS.coastalZone, pointParams).catch(() => ({ features: [] })),
-    queryLayer(CONFIG.LAYERS.historicSites, pointParams).catch(() => ({ features: [] })),
+    // Historic structures are small footprints that are often off-center in the lot, so test
+    // the full parcel polygon rather than the centroid point (falls back to the point on error).
+    queryLayer(CONFIG.LAYERS.historicSites, histParams).catch(() => queryLayer(CONFIG.LAYERS.historicSites, pointParams)).catch(() => ({ features: [] })),
     queryLayer(CONFIG.LAYERS.transitPriorityArea, pointParams).catch(() => ({ features: [] })),
     Promise.resolve({ features: [] }), // layer 294 excluded — half-mile bus buffer too broad for AB 2097
     queryLayer(CONFIG.LAYERS.generalPlan, { ...pointParams, outFields: 'luCode,landUseDesignations,gPorLcp' }).catch(() => ({ features: [] })),
