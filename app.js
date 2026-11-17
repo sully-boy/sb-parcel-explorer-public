@@ -2009,7 +2009,18 @@ function showParcelDetail(feature) {
   // Hide the results table when a single parcel detail is shown
   document.getElementById('resultsSection').style.display = 'none';
   // Open bottom sheet on mobile
-  if (window.MobileUI && window.MobileUI.isMobile()) window.MobileUI.openPanel();
+  document.querySelectorAll('.tab-content').forEach(t => { t.scrollTop = 0; });  // new parcel: start at the top
+  if (window.MobileUI && window.MobileUI.isMobile()) {
+    window.MobileUI.openPanel();
+    // If the sheet would cover the selected parcel, nudge the map so it stays visible above the sheet
+    try {
+      if (feature.geometry && state.map) {
+        const pt = state.map.latLngToContainerPoint(L.geoJSON(feature).getBounds().getCenter());
+        const visibleBottom = state.map.getSize().y - window.MobileUI.sheetHeight();
+        if (pt.y > visibleBottom - 40) state.map.panBy([0, pt.y - visibleBottom / 2], { animate: true });
+      }
+    } catch (e) { /* non-critical */ }
+  }
 
   const apn  = p.apn || p.apn9Digit || '—';
   const addr = [p.situs1, p.situs2].filter(Boolean).join(' ') || '—';

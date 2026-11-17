@@ -3444,3 +3444,58 @@ a.gate-btn--contact:hover {
   .detail-address { font-size: 15px; font-weight: 600; }
   #compareToggleBtn, #pdfExportBtn, #watchlistToggleBtn { white-space: nowrap; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE BOTTOM SHEET (public version) — resizable, scrolls on its own
+   - No dimming layer: the map above the sheet stays interactive
+   - Drag the grip / parcel header to resize (small / medium / large) or flick down to close
+   - Scrolling inside the sheet never passes through to the page it's embedded in
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  html, body { overscroll-behavior: none; }
+
+  .sidebar-right {
+    height: var(--sheet-h, 58dvh);
+    max-height: none;
+    overscroll-behavior: contain;
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), height 0.22s ease;
+  }
+  .sidebar-right.sheet-dragging { transition: none; }
+  .sidebar-right::before { display: none; }          /* replaced by the real .sheet-grip */
+
+  .sheet-grip {
+    flex-shrink: 0;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    cursor: grab;
+  }
+  .sheet-grip::after {
+    content: '';
+    width: 44px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--color-text-faint, #8a8a8a);
+    opacity: 0.65;
+  }
+
+  /* Parcel header is a drag zone too; tabs only pan sideways; content only scrolls vertically */
+  .detail-header { touch-action: none; }
+  .detail-tabs { touch-action: pan-x; overscroll-behavior: contain; }
+  .tab-content,
+  #resultsSection {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--space-4, 16px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Give the scrolling area the room: the saved-parcels strip is desktop-only */
+  .watchlist-panel { display: none; }
+
+  /* Keep floating map UI from sitting on top of the open sheet */
+  .sheet-open #mapStatus { display: none; }
+  .sheet-open .map-zoom-controls { z-index: 300; }
+}
