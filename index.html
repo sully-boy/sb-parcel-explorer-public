@@ -145,9 +145,9 @@
           <span class="sidebar-title">Base Map</span>
         </div>
         <div class="basemap-options">
-          <button class="basemap-btn active" data-basemap="osm">Streets</button>
+          <button class="basemap-btn" data-basemap="osm">Streets</button>
           <button class="basemap-btn" data-basemap="satellite">Satellite</button>
-          <button class="basemap-btn" data-basemap="topo">Topo</button>
+          <button class="basemap-btn active" data-basemap="topo">Topo</button>
           <button class="basemap-btn" data-basemap="light">Light</button>
         </div>
       </div>
@@ -510,6 +510,8 @@
   <!-- proj4 for coordinate projection (NAD83 California Zone 5 → WGS84) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
   <!-- Developer planning analyzer -->
+  <!-- City GIS no longer allows direct browser access; route through the BAP Cloudflare proxy (gis-proxy-worker.js) -->
+  <script>window.GIS_ORIGIN = 'https://bap-gis-proxy.sully-3ad.workers.dev';</script>
   <script src="analyzer.js"></script>
   <!-- Pro forma estimator -->
   <script src="proforma.js"></script>
@@ -624,6 +626,8 @@
     function applyMobileState() {
       var mob = isMobile();
       layerBtn.style.display = mob ? 'flex' : 'none';
+      var si = document.getElementById('searchInput');
+      if (si) si.placeholder = mob ? 'Search address or APN' : 'Search by address or APN (e.g. 123 State St or 017-100-001)…';
       if (!mob) {
         closeDrawer();
         closePanel();
@@ -632,28 +636,17 @@
     }
 
     // ── Hook into app.js parcel selection ────────────────────
-    // Watch for detailPanel OR resultsSection becoming visible → open bottom sheet
-    if (sidebarRight) {
-      var observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(m) {
-          if (m.attributeName === 'style' || m.attributeName === 'class') {
-            var dp = document.getElementById('detailPanel');
-            var rs = document.getElementById('resultsSection');
-            var dpVisible = dp && dp.style.display !== 'none' && dp.style.display !== '';
-            var rsVisible = rs && rs.style.display !== 'none' && rs.style.display !== '';
-            if ((dpVisible || rsVisible) && isMobile()) {
-              openPanel();
-            }
-          }
-        });
-      });
-      var dp = document.getElementById('detailPanel');
-      if (dp) observer.observe(dp, { attributes: true });
-      var rs = document.getElementById('resultsSection');
-      if (rs) observer.observe(rs, { attributes: true });
-
-      // Also observe sidebar-right display changes (app.js may show it directly)
-      observer.observe(sidebarRight, { attributes: true });
+    // Open the bottom sheet only when a single parcel's detail panel appears
+    // (not for the "parcels in view" list, which refreshes on every map move,
+    // and not when the sheet itself is closed).
+    var dpEl = document.getElementById('detailPanel');
+    if (sidebarRight && dpEl) {
+      var dpWasVisible = false;
+      new MutationObserver(function() {
+        var vis = dpEl.style.display !== 'none' && dpEl.style.display !== '';
+        if (vis && !dpWasVisible && isMobile()) openPanel();
+        dpWasVisible = vis;
+      }).observe(dpEl, { attributes: true, attributeFilter: ['style'] });
     }
 
     // Sync real header height to CSS variable for resultsSection positioning

@@ -12,7 +12,7 @@
 'use strict';
 
 // ── Shared constants ─────────────────────────────────────────
-var DF_BASE = 'https://gisportal.santabarbaraca.gov/server1/rest/services/CitySantaBarbara/MapServer';
+var DF_BASE = (window.GIS_ORIGIN || 'https://gisportal.santabarbaraca.gov') + '/server1/rest/services/CitySantaBarbara/MapServer';
 
 // Internal ArcGIS REST fetch helper — mirrors queryLayer in app.js
 // but is self-contained so this module has no external dependencies.

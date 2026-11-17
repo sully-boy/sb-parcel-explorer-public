@@ -3383,3 +3383,64 @@ a.gate-btn--contact:hover {
   pointer-events: none;
 }
 .zone-tooltip::before { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE / EMBED POLISH (public version)
+   - Loading indicator never blocks the map (touch pan/zoom keeps working)
+   - Compact "Loading…" pill on phones instead of a full-screen dim layer
+   - 16px inputs so iOS Safari doesn't zoom the page when search is tapped
+   ═══════════════════════════════════════════════════════════════ */
+.loading-overlay,
+.loading-overlay.visible { pointer-events: none !important; }
+
+@media (max-width: 768px) {
+  .loading-overlay {
+    inset: auto;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    flex-direction: row;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: rgba(20, 18, 15, 0.82);
+    backdrop-filter: none;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .loading-overlay .loading-spinner { width: 14px; height: 14px; border-width: 2px; }
+
+  #searchInput { font-size: 16px; }
+  .opacity-slider { touch-action: pan-x; }
+
+  .map-coords { display: none; }
+  .map-zoom-controls { top: 10px; right: 10px; }
+  .map-zoom-btn { width: 40px; height: 40px; font-size: 20px; }
+
+  #mapStatus { font-size: 12px; padding: 6px 12px; }
+
+  .layer-toggle { min-height: 44px; }
+  .basemap-btn { min-height: 40px; }
+
+  /* Keep the sheet from burying the map: show ~60% so the parcel stays visible above it */
+  .sidebar-right { height: 62dvh; }
+}
+
+@media (max-width: 768px) {
+  /* One compact header row: [layers] [search……] [theme] — gives the map more room, esp. inside an embed */
+  .app-header { flex-wrap: nowrap; padding: 8px 10px; gap: 8px; }
+  .header-left .logo-mark { display: none; }
+  .header-left { flex: 0 0 auto; min-width: 0 !important; width: auto !important; }
+  .header-center { order: 0; flex: 1 1 0; min-width: 0; max-width: none; margin: 0; }
+  .search-bar { width: 100%; }
+  #searchInput { min-width: 0; flex: 1 1 auto; }
+  .header-right { flex: 0 0 auto; }
+
+  /* Parcel sheet: full-width address, action buttons on their own row */
+  .detail-header { flex-wrap: wrap; }
+  .detail-header > div:first-child { flex: 1 1 100%; min-width: 0; }
+  .detail-apn { font-size: 12px; }
+  .detail-address { font-size: 15px; font-weight: 600; }
+  #compareToggleBtn, #pdfExportBtn, #watchlistToggleBtn { white-space: nowrap; }
+}

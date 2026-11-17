@@ -8,9 +8,11 @@
 // ── Configuration ────────────────────────────────────────────
 const CONFIG = {
   // City ArcGIS REST base
-  CITY_BASE: 'https://gisportal.santabarbaraca.gov/server1/rest/services/CitySantaBarbara/MapServer',
+  // GIS_ORIGIN (set in index_public.html) points at the BAP Cloudflare proxy: the City's server no longer
+  // sends CORS headers to third-party sites, so browsers can't call it directly. Falls back to direct.
+  CITY_BASE: (window.GIS_ORIGIN || 'https://gisportal.santabarbaraca.gov') + '/server1/rest/services/CitySantaBarbara/MapServer',
   // County hosted parcels (RHNA inventory from same portal)
-  COUNTY_BASE: 'https://gisportal.santabarbaraca.gov/hosting/rest/services/RHNA_2023_Site_Inventory_Parcels/FeatureServer',
+  COUNTY_BASE: (window.GIS_ORIGIN || 'https://gisportal.santabarbaraca.gov') + '/hosting/rest/services/RHNA_2023_Site_Inventory_Parcels/FeatureServer',
 
   // Layer IDs from the MapServer
   LAYERS: {
@@ -168,7 +170,9 @@ function setLoading(show) {
 }
 
 // ── ArcGIS REST Query ────────────────────────────────────────
-async function queryLayer(layerId, params = {}) {
+const QUERY_TIMEOUT_MS = 25000; // a hung City GIS request must not leave the UI waiting forever (esp. on mobile networks)
+
+async function queryLayer(layerId, params = {}, signal) {
   const base = `${CONFIG.CITY_BASE}/${layerId}/query`;
   const defaults = {
     f: 'json',
@@ -180,15 +184,30 @@ async function queryLayer(layerId, params = {}) {
   const query = { ...defaults, ...params };
   const url = base + '?' + new URLSearchParams(query).toString();
 
+  const ctl = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; ctl.abort(); }, QUERY_TIMEOUT_MS);
+  if (signal) {
+    if (signal.aborted) ctl.abort();
+    else signal.addEventListener('abort', () => ctl.abort(), { once: true });
+  }
+
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: ctl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error.message || 'ArcGIS error');
     return data;
   } catch (err) {
-    console.error(`Layer ${layerId} query failed:`, err);
+    if (timedOut) {
+      const te = new Error('Request timed out');
+      console.error(`Layer ${layerId} query timed out`);
+      throw te;
+    }
+    if (err.name !== 'AbortError') console.error(`Layer ${layerId} query failed:`, err);
     throw err;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -333,16 +352,22 @@ function initMap() {
     }
   });
 
+  // Debounced: pinch-zoom / flick-pan fire many moveend events in a row on phones.
+  // Wait for the map to settle, then run one query per layer for the final view.
+  let _moveTimer = null;
   map.on('moveend', () => {
-    if (document.querySelector('input[data-layer="parcels"]').checked && map.getZoom() >= 14) {
-      loadParcelsInView();
-    }
-    if (document.querySelector('input[data-layer="zoning"]').checked) {
-      loadZoningInView();
-    }
-    if (document.querySelector('input[data-layer="county-parcels"]').checked) {
-      loadCountyParcelsInView();
-    }
+    clearTimeout(_moveTimer);
+    _moveTimer = setTimeout(() => {
+      if (document.querySelector('input[data-layer="parcels"]').checked && map.getZoom() >= 14) {
+        loadParcelsInView();
+      }
+      if (document.querySelector('input[data-layer="zoning"]').checked) {
+        loadZoningInView();
+      }
+      if (document.querySelector('input[data-layer="county-parcels"]').checked) {
+        loadCountyParcelsInView();
+      }
+    }, 350);
   });
 
   // Load initial always-visible layers
@@ -500,8 +525,12 @@ async function loadCityLimits() {
 }
 
 // Assessors Parcels — loaded by current map view
+let _parcelCtl = null;
 async function loadParcelsInView() {
   const env = getMapEnvelope();
+  // Cancel any in-flight parcel query for an older view; only the latest view may render.
+  if (_parcelCtl) _parcelCtl.abort();
+  const ctl = _parcelCtl = new AbortController();
   try {
     setStatus('Querying parcels…', 'loading');
     setLoading(true);
@@ -510,7 +539,8 @@ async function loadParcelsInView() {
       geometryType: 'esriGeometryEnvelope',
       spatialRel: 'esriSpatialRelIntersects',
       where: '1=1',
-    });
+    }, ctl.signal);
+    if (ctl !== _parcelCtl) return; // superseded by a newer request
     setLoading(false);
 
     if (!data.features?.length) {
@@ -601,6 +631,7 @@ async function loadParcelsInView() {
       });
     }
   } catch (e) {
+    if (ctl !== _parcelCtl) return; // superseded: the newer request owns the loading state
     setLoading(false);
     setStatus('Parcel query failed', 'error');
     showToast('Could not load parcels: ' + e.message, 'error');
