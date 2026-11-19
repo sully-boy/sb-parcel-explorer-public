@@ -438,6 +438,18 @@ function addOutsideCityMask(cityGeoJSON) {
     polys.forEach(poly => poly.forEach(ring => cityRings.push(ring)));
   });
 
+  // The City can publish the same boundary more than once (duplicate records).
+  // The mask uses even-odd filling, so two identical rings cancel each other out
+  // and grey the whole city. Keep only one copy of each distinct ring.
+  const _seenRings = new Set();
+  for (let i = cityRings.length - 1; i >= 0; i--) {
+    const r = cityRings[i];
+    let sx = 0, sy = 0;
+    r.forEach(c => { sx += c[0]; sy += c[1]; });
+    const key = r.length + '|' + sx.toFixed(6) + '|' + sy.toFixed(6);
+    if (_seenRings.has(key)) cityRings.splice(i, 1); else _seenRings.add(key);
+  }
+
   // GeoJSON polygon: outer ring = world, holes = city polygons
   const maskGeoJSON = {
     type: 'Feature',

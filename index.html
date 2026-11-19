@@ -566,60 +566,89 @@
     });
     overlay.addEventListener('click', function() {
       closeDrawer();
-      closePanel();
     });
 
     // ── Bottom sheet (detail panel) ──────────────────────────
     var sidebarRight = document.querySelector('.sidebar-right');
 
+    // ── Bottom sheet (results / parcel detail) ───────────────
+    // Three snap heights (small / medium / large); drag the grip or the parcel header to resize,
+    // flick down to dismiss. The map above the sheet stays fully interactive (no dimming layer).
+    function sheetMetrics() {
+      var H = window.innerHeight;
+      var hdr = (document.querySelector('.app-header') || {}).offsetHeight || 56;
+      // never let the sheet slide up under the header (important in a short embedded window)
+      var max = Math.min(Math.round(H * 0.92), H - hdr - 8);
+      return { min: Math.round(H * 0.32), mid: Math.round(Math.min(H * 0.58, max)), max: max };
+    }
+    function setSheetHeight(px) {
+      if (sidebarRight) sidebarRight.style.setProperty('--sheet-h', Math.round(px) + 'px');
+    }
+    function sheetTargetHeight() {
+      var v = sidebarRight ? parseFloat(sidebarRight.style.getPropertyValue('--sheet-h')) : NaN;
+      return v || sheetMetrics().mid;
+    }
     function openPanel() {
       if (!sidebarRight || !isMobile()) return;
+      if (!sidebarRight.classList.contains('mob-panel-open')) setSheetHeight(sheetMetrics().mid);
       sidebarRight.classList.add('mob-panel-open');
-      // Show overlay behind panel (lower z-index), unless drawer is open
-      if (!sidebarLeft.classList.contains('mob-open')) {
-        overlay.classList.add('visible');
-      }
+      document.documentElement.classList.add('sheet-open');
     }
     function closePanel() {
       if (!sidebarRight) return;
       sidebarRight.classList.remove('mob-panel-open');
-      overlay.classList.remove('visible');
+      sidebarRight.classList.remove('sheet-dragging');
+      document.documentElement.classList.remove('sheet-open');
     }
 
-    // Expose so app.js can call openPanel after parcel load
-    window.MobileUI = { openPanel: openPanel, closePanel: closePanel, isMobile: isMobile };
+    // Expose so app.js can open the sheet and keep the selected parcel visible above it
+    window.MobileUI = { openPanel: openPanel, closePanel: closePanel, isMobile: isMobile, sheetHeight: sheetTargetHeight };
 
-    // ── Drag-to-dismiss the bottom sheet ────────────────────
     if (sidebarRight) {
-      var startY = 0, currentY = 0, dragging = false;
+      // Real drag handle (a pseudo-element can't receive touches)
+      var grip = document.createElement('div');
+      grip.className = 'sheet-grip';
+      grip.setAttribute('role', 'separator');
+      grip.setAttribute('aria-label', 'Drag to resize results');
+      sidebarRight.insertBefore(grip, sidebarRight.firstChild);
 
-      sidebarRight.addEventListener('touchstart', function(e) {
-        // Only start drag if touch is near the top (drag handle area)
-        var touch = e.touches[0];
-        var rect = sidebarRight.getBoundingClientRect();
-        if (touch.clientY - rect.top < 40) {
-          startY = touch.clientY;
-          dragging = true;
-        }
-      }, { passive: true });
-
-      sidebarRight.addEventListener('touchmove', function(e) {
-        if (!dragging) return;
-        currentY = e.touches[0].clientY;
-        var dy = Math.max(0, currentY - startY);
-        sidebarRight.style.transform = 'translateY(' + dy + 'px)';
-      }, { passive: true });
-
-      sidebarRight.addEventListener('touchend', function() {
-        if (!dragging) return;
-        dragging = false;
-        var dy = currentY - startY;
-        sidebarRight.style.transform = '';
-        if (dy > 100) {
-          closePanel();
-        }
-        startY = 0; currentY = 0;
+      var drag = null;
+      sidebarRight.addEventListener('pointerdown', function(e) {
+        if (!isMobile() || !sidebarRight.classList.contains('mob-panel-open')) return;
+        if (!e.target.closest('.sheet-grip, .detail-header')) return;
+        if (e.target.closest('button, a, input, select, textarea')) return;
+        drag = { id: e.pointerId, startY: e.clientY, startH: sidebarRight.getBoundingClientRect().height,
+                 lastY: e.clientY, lastT: e.timeStamp, v: 0, moved: false };
       });
+      sidebarRight.addEventListener('pointermove', function(e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        var dy = e.clientY - drag.startY;
+        if (!drag.moved) {
+          if (Math.abs(dy) < 6) return;
+          drag.moved = true;
+          try { sidebarRight.setPointerCapture(e.pointerId); } catch (err) {}
+          sidebarRight.classList.add('sheet-dragging');
+        }
+        var m = sheetMetrics();
+        setSheetHeight(Math.max(m.min * 0.5, Math.min(m.max, drag.startH - dy)));
+        var dt = e.timeStamp - drag.lastT;
+        if (dt > 0) drag.v = (e.clientY - drag.lastY) / dt;   // px/ms, + = downward
+        drag.lastY = e.clientY; drag.lastT = e.timeStamp;
+      });
+      function endDrag(e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        var d = drag; drag = null;
+        if (!d.moved) return;
+        sidebarRight.classList.remove('sheet-dragging');
+        var m = sheetMetrics();
+        var projected = sidebarRight.getBoundingClientRect().height - d.v * 150;   // include flick momentum
+        if (projected < m.min * 0.75) { closePanel(); return; }
+        var snaps = [m.min, m.mid, m.max], best = snaps[0];
+        snaps.forEach(function(s) { if (Math.abs(s - projected) < Math.abs(best - projected)) best = s; });
+        setSheetHeight(best);
+      }
+      sidebarRight.addEventListener('pointerup', endDrag);
+      sidebarRight.addEventListener('pointercancel', endDrag);
     }
 
     // ── Apply / remove mobile state on resize ────────────────
